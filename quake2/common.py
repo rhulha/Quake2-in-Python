@@ -377,18 +377,206 @@ def Com_Error_f():
     pass
 
 
-@TODO
 def Qcommon_Init(argc, argv):
-    pass
+    """
+    Initialize all engine subsystems.
+    Called once at startup.
+    """
+    global host_speeds, log_stats, developer, timescale, fixedtime, logfile_active, showtrace, dedicated
+
+    Com_Printf("====== Quake 2 Initializing ======\n\n")
+
+    # Initialize memory
+    # z_chain.next = z_chain.prev = &z_chain
+
+    # Initialize basic subsystems first
+    try:
+        # Parse command line arguments
+        com_argv.clear()
+        for i in range(argc):
+            if isinstance(argv, list):
+                com_argv.append(argv[i])
+            else:
+                com_argv.append(str(argv[i]))
+
+        # Initialize command buffer
+        from .cmd import Cbuf_Init, Cbuf_AddText, Cbuf_Execute
+        Cbuf_Init()
+
+        # Initialize commands
+        from .cmd import Cmd_Init, Cmd_AddCommand
+        Cmd_Init()
+
+        # Initialize console variables
+        from .cvar import Cvar_Init, Cvar_Get
+        Cvar_Init()
+
+        # Initialize key binding system
+        try:
+            from .keys import Key_Init
+            Key_Init()
+        except:
+            pass
+
+        # Add early commands (before config)
+        Cbuf_AddText("exec default.cfg\n")
+        Cbuf_AddText("exec config.cfg\n")
+        Cbuf_Execute()
+
+        # Initialize filesystem
+        from .files import FS_InitFilesystem
+        FS_InitFilesystem()
+
+        # Register cvars
+        host_speeds = Cvar_Get("host_speeds", "0", 0)
+        log_stats = Cvar_Get("log_stats", "0", 0)
+        developer = Cvar_Get("developer", "0", 0)
+        timescale = Cvar_Get("timescale", "1", 0)
+        fixedtime = Cvar_Get("fixedtime", "0", 0)
+        logfile_active = Cvar_Get("logfile", "0", 0)
+        showtrace = Cvar_Get("showtrace", "0", 0)
+        dedicated = Cvar_Get("dedicated", "0", 0)
+
+        # Register version
+        import sys
+        version = "Quake2-Python 1.0"
+        Cvar_Get("version", version, 0)
+
+        # Register error command
+        Cmd_AddCommand("error", Com_Error_f)
+
+        # Initialize network
+        try:
+            from .net_chan import Netchan_Init
+            Netchan_Init()
+        except:
+            pass
+
+        # Initialize server
+        try:
+            from .sv_main import SV_Init
+            SV_Init()
+        except Exception as e:
+            Com_Printf(f"Warning: SV_Init failed: {e}\n")
+
+        # Initialize client
+        try:
+            from .cl_main import CL_Init
+            CL_Init()
+        except Exception as e:
+            Com_Printf(f"Warning: CL_Init failed: {e}\n")
+
+        # Default action: load first map
+        try:
+            Cbuf_AddText("d1\n")
+            Cbuf_Execute()
+        except:
+            pass
+
+        Com_Printf("====== Quake 2 Initialized ======\n\n")
+
+    except Exception as e:
+        Com_Error(0, f"Error during initialization: {e}")
 
 
-@TODO
 def Qcommon_Frame(msec):
-    pass
+    """
+    Main game loop frame.
+    Called once per frame (~60 Hz).
+    Handles both server and client frame updates.
+    """
+    global log_stats, fixedtime, timescale, showtrace, host_speeds
+
+    # Apply timescale and fixed time
+    if fixedtime and fixedtime.value:
+        msec = int(fixedtime.value)
+    elif timescale and timescale.value:
+        msec = int(msec * timescale.value)
+        if msec < 1:
+            msec = 1
+
+    try:
+        # Process console input
+        try:
+            from .sys_win import Sys_ConsoleInput
+            from .cmd import Cbuf_AddText, Cbuf_Execute
+            s = Sys_ConsoleInput()
+            if s:
+                Cbuf_AddText(f"{s}\n")
+            Cbuf_Execute()
+        except:
+            pass
+
+        # Show trace statistics if enabled
+        if showtrace and showtrace.value:
+            Com_Printf("Trace statistics\n")
+
+        # Time server frame
+        time_before = 0
+        if host_speeds and host_speeds.value:
+            from .sys_win import Sys_Milliseconds
+            time_before = Sys_Milliseconds()
+
+        # Run server frame
+        try:
+            from .sv_main import SV_Frame
+            SV_Frame(msec)
+        except Exception as e:
+            Com_Printf(f"Warning: SV_Frame error: {e}\n")
+
+        time_between = 0
+        if host_speeds and host_speeds.value:
+            from .sys_win import Sys_Milliseconds
+            time_between = Sys_Milliseconds()
+
+        # Run client frame
+        try:
+            from .cl_main import CL_Frame
+            CL_Frame(msec)
+        except Exception as e:
+            Com_Printf(f"Warning: CL_Frame error: {e}\n")
+
+        time_after = 0
+        if host_speeds and host_speeds.value:
+            from .sys_win import Sys_Milliseconds
+            time_after = Sys_Milliseconds()
+
+            all_time = time_after - time_before
+            sv_time = time_between - time_before
+            cl_time = time_after - time_between
+
+            Com_Printf(f"all:{all_time:3d}ms sv:{sv_time:3d}ms cl:{cl_time:3d}ms\n")
+
+    except Exception as e:
+        # On error, try to continue
+        Com_Printf(f"Frame error: {e}\n")
 
 
 def Qcommon_Shutdown():
-    pass
+    """
+    Shut down all engine subsystems.
+    Called once at exit.
+    """
+    global logfile
+
+    try:
+        from .sv_main import SV_Shutdown
+        SV_Shutdown("Server shutdown", False)
+    except:
+        pass
+
+    try:
+        from .cl_main import CL_Shutdown
+        CL_Shutdown()
+    except:
+        pass
+
+    # Close logfile
+    if logfile is not None:
+        logfile.close()
+        logfile = None
+
+    Com_Printf("Quake 2 shutdown\n")
 
 
 from .sys_win import Sys_ConsoleOutput, Sys_Error

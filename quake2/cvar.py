@@ -77,9 +77,12 @@ def Cvar_Get(var_name, var_value, flags):
             return None
     var = cvar_t()
     var.name = var_name
-    var.string = val_value
+    var.string = var_value
     var.modified = True
-    var.value = float(var.string)
+    try:
+        var.value = float(var.string)
+    except:
+        var.value = 0.0
     var.flags = flags
     cvar_vars[var_name] = var
     return var
@@ -118,7 +121,7 @@ def Cvar_Set2(var_name, value, force):
             return var
     else:
         if len(var.latched_string) > 0:
-            var.latched_string = 0
+            var.latched_string = ""
     if var.string == value:
         return var
     var.modified = True
@@ -126,7 +129,10 @@ def Cvar_Set2(var_name, value, force):
         global userinfo_modified
         userinfo_modified = True
     var.string = value
-    var.value = float(var.string)
+    try:
+        var.value = float(var.string)
+    except:
+        var.value = 0.0
     return var
 
 
@@ -153,21 +159,26 @@ def Cvar_FullSet(var_name, value, flags):
 
 
 def Cvar_SetValue(var_name, value):
-    val = Mutable("")
-    if value == int(value):
-        Com_sprintf(val, 32, "%i", int(value))
+    """Set cvar to a numeric value"""
+    if isinstance(value, float):
+        if value == int(value):
+            Cvar_Set(var_name, str(int(value)))
+        else:
+            Cvar_Set(var_name, str(value))
     else:
-        Com_sprintf(val, 32, "%f", value)
-    Cvar_Set(var_name, val.GetValue())
+        Cvar_Set(var_name, str(value))
 
 
 def Cvar_GetLatchedVars():
-    for var in cvar_vars:
+    for var in cvar_vars.values():
         if len(var.latched_string) == 0:
             continue
         var.string = var.latched_string
         var.latched_string = ""
-        var.value = float(var.string)
+        try:
+            var.value = float(var.string)
+        except:
+            var.value = 0.0
         if var.name == "game":
             FS_SetGameDir(var.string)
             FS_ExecAutoexec()
@@ -205,14 +216,15 @@ def Cvar_Set_f():
 def Cvar_WriteVariables(path):
     buffer = Mutable()
     with open(path, "a") as f:
-        for var in cvar_vars:
+        for var in cvar_vars.values():
             if var.flags & CVAR_ENUM.CVAR_ARCHIVE:
                 Com_sprintf(buffer, 1024, "set %s \"%s\"\n", var.name, var.string)
                 f.write(buffer.GetValue())
 
 
 def Cvar_List_f():
-    for var in cvar_vars:
+    count = 0
+    for var in cvar_vars.values():
         if var.flags & CVAR_ENUM.CVAR_ARCHIVE:
             Com_Printf("*")
         else:
@@ -220,19 +232,20 @@ def Cvar_List_f():
         if var.flags & CVAR_ENUM.CVAR_USERINFO:
             Com_Printf("U")
         else:
-            Com_Printf("*")
+            Com_Printf(" ")
         if var.flags & CVAR_ENUM.CVAR_SERVERINFO:
             Com_Printf("S")
         else:
-            Com_Printf("*")
+            Com_Printf(" ")
         if var.flags & CVAR_ENUM.CVAR_NOSET:
             Com_Printf("-")
         elif var.flags & CVAR_ENUM.CVAR_LATCH:
             Com_Printf("L")
         else:
-            Com_Printf("*")
-        Com_Printf (" %s \"%s\"\n", var.name, var.string)
-    Com_Printf("%i cvars\n", i)
+            Com_Printf(" ")
+        Com_Printf(" %s \"%s\"\n", var.name, var.string)
+        count += 1
+    Com_Printf("%i cvars\n", count)
 
 
 def Cvar_BitInfo(bit):
