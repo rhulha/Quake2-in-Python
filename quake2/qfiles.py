@@ -206,7 +206,7 @@ class Face:
     texinfo: int
     styles: list
     lightofs: int
-    SIZE = 20
+    SIZE = 20  # uint16(2) + uint16(2) + int(4) + uint16(2) + uint16(2) + bytes(4) + int(4) = 20
 
 @dataclass
 class TexInfo:
@@ -442,14 +442,14 @@ def read_entities(lumps: list) -> str:
 def read_faces(lumps: list) -> list:
     br = BinaryReader(lumps[LUMP_FACES])
     result = []
-    for _ in range(br.length() // Face.SIZE):
+    for _ in range(br.length() // 20):  # dface_t is 20 bytes
         face = {
             'plane_num': br.read_uint16(),
             'side': br.read_uint16(),
             'first_edge': br.read_int(),
-            'num_edges': br.read_int16(),
-            'texinfo': br.read_int16(),
-            'styles': br.read_int16s(4),
+            'num_edges': br.read_uint16(),
+            'texinfo': br.read_uint16(),
+            'styles': br.read_bytes(4),  # 4 uint8 bytes
             'lightofs': br.read_int(),
         }
         result.append(face)

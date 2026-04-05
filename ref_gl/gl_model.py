@@ -54,8 +54,8 @@ class Model:
 def Mod_LoadModel(name, crash=True):
     """Load a model by name"""
     try:
-        from ..quake2.files import FS_LoadFile
-        from ..quake2 import qfiles
+        from quake2.files import FS_LoadFile
+        from quake2 import qfiles
 
         # Check cache
         if name in mod_known:
@@ -66,7 +66,7 @@ def Mod_LoadModel(name, crash=True):
 
         if data is None:
             if crash:
-                from ..quake2.common import Com_Error
+                from quake2.common import Com_Error
                 Com_Error(0, f"Mod_Load: can't load {name}")
             return None
 
@@ -74,7 +74,8 @@ def Mod_LoadModel(name, crash=True):
         magic = data[0:4]
 
         if magic == b'IBSP':
-            return Mod_LoadBrush(name, data)
+            result = Mod_LoadBrush(name, data)
+            return result
         elif magic == b'IDP2':
             return Mod_LoadAlias(name, data)
         else:
@@ -82,6 +83,8 @@ def Mod_LoadModel(name, crash=True):
             return None
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         Com_Printf(f"Mod_LoadModel error: {e}\n")
         return None
 
@@ -89,7 +92,7 @@ def Mod_LoadModel(name, crash=True):
 def Mod_LoadBrush(name, data):
     """Load BSP (brush) model"""
     try:
-        from ..quake2 import qfiles
+        from quake2 import qfiles
 
         model = Model(name)
         model.type = MODEL_BRUSH
@@ -108,35 +111,40 @@ def Mod_LoadBrush(name, data):
             return None
 
         # Load BSP data structures
-        model.planes = qfiles.read_planes(lumps)
-        model.vertices = qfiles.read_vertices(lumps)
-        model.nodes = qfiles.read_nodes(lumps)
-        model.leafs = qfiles.read_leafs(lumps)
-        model.faces = qfiles.read_faces(lumps)
-        model.models = qfiles.read_models(lumps)
-        model.visdata = qfiles.read_visibility(lumps)
-        model.lightdata = lumps[qfiles.LUMP_LIGHTMAPS] if len(lumps) > qfiles.LUMP_LIGHTMAPS else None
-        model.brushes = qfiles.read_brushes(lumps)
-        model.brush_sides = qfiles.read_brush_sides(lumps)
+        try:
+            model.planes = qfiles.read_planes(lumps)
+            model.vertices = qfiles.read_vertices(lumps)
+            model.nodes = qfiles.read_nodes(lumps)
+            model.leafs = qfiles.read_leafs(lumps)
+            model.faces = qfiles.read_faces(lumps)
+            model.models = qfiles.read_models(lumps)
+            model.visdata = qfiles.read_visibility(lumps)
+            model.lightdata = lumps[qfiles.LUMP_LIGHTMAPS] if len(lumps) > qfiles.LUMP_LIGHTMAPS else None
+            model.brushes = qfiles.read_brushes(lumps)
+            model.brush_sides = qfiles.read_brush_sides(lumps)
 
-        # Store raw lumps for gl_rsurf to parse edges and texinfo
-        model.lump_edges = lumps[qfiles.LUMP_EDGES] if len(lumps) > qfiles.LUMP_EDGES else b''
-        model.lump_surfedges = lumps[qfiles.LUMP_FACE_EDGES] if len(lumps) > qfiles.LUMP_FACE_EDGES else b''
-        model.lump_texinfo = lumps[qfiles.LUMP_TEXINFO] if len(lumps) > qfiles.LUMP_TEXINFO else b''
+            # Store raw lumps for gl_rsurf to parse edges and texinfo
+            model.lump_edges = lumps[qfiles.LUMP_EDGES] if len(lumps) > qfiles.LUMP_EDGES else b''
+            model.lump_surfedges = lumps[qfiles.LUMP_FACE_EDGES] if len(lumps) > qfiles.LUMP_FACE_EDGES else b''
+            model.lump_texinfo = lumps[qfiles.LUMP_TEXINFO] if len(lumps) > qfiles.LUMP_TEXINFO else b''
 
-        # Set model bounds from first model
-        if model.models:
-            first_model = model.models[0]
-            model.mins = first_model.mins
-            model.maxs = first_model.maxs
+            # Set model bounds from first model
+            if model.models:
+                first_model = model.models[0]
+                model.mins = first_model['mins']
+                model.maxs = first_model['maxs']
 
-        # Calculate radius
-        model.radius = RadiusFromBounds(model.mins, model.maxs)
+            # Calculate radius
+            model.radius = RadiusFromBounds(model.mins, model.maxs)
 
-        mod_known[name] = model
-        return model
+            mod_known[name] = model
+            return model
+        except Exception as e:
+            raise
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         Com_Printf(f"Mod_LoadBrush error: {e}\n")
         return None
 
@@ -351,3 +359,6 @@ def Mod_Free(name):
     global mod_known
     if name in mod_known:
         del mod_known[name]
+
+
+from quake2.common import Com_Printf

@@ -22,9 +22,11 @@ def R_DrawWorld(worldmodel):
 
         # Render all faces
         if hasattr(worldmodel, 'faces') and worldmodel.faces:
+            face_count = 0
             for face in worldmodel.faces:
                 try:
                     _draw_face(worldmodel, face)
+                    face_count += 1
                 except:
                     pass
 

@@ -61,7 +61,7 @@ gi = GameImport()
 def G_Init():
     """Initialize game"""
     try:
-        from ..quake2.common import Com_Printf, Cvar_Get, Cmd_AddCommand
+        from quake2.common import Com_Printf, Cvar_Get, Cmd_AddCommand
 
         Com_Printf("G_Init()\n")
 
@@ -90,7 +90,7 @@ def G_Init():
 def ShutdownGame():
     """Shutdown game"""
     try:
-        from ..quake2.common import Com_Printf
+        from quake2.common import Com_Printf
 
         Com_Printf("ShutdownGame()\n")
 
@@ -109,7 +109,7 @@ def G_RunFrame():
     Called from server each frame to update all entities.
     """
     try:
-        from ..quake2.common import Com_Printf
+        from quake2.common import Com_Printf
 
         # Update time
         game.time += 0.016  # 16ms = ~60Hz
@@ -140,8 +140,8 @@ def G_SpawnEntities(mapname):
     Parses ent file format and creates entities.
     """
     try:
-        from ..quake2.cmodel import CM_EntityString
-        from ..quake2.common import Com_Printf
+        from quake2.cmodel import CM_EntityString
+        from quake2.common import Com_Printf
 
         entity_string = CM_EntityString()
 
@@ -283,7 +283,7 @@ def G_PlayerThink(ent):
 
 def Say_f():
     """say <text> - Send message"""
-    from ..quake2.cmd import Cmd_Argv, Cmd_Argc
+    from quake2.cmd import Cmd_Argv, Cmd_Argc
 
     if Cmd_Argc() < 2:
         return
@@ -295,7 +295,7 @@ def Say_f():
 
 def Say_Team_f():
     """say_team <text> - Send team message"""
-    from ..quake2.cmd import Cmd_Argv, Cmd_Argc
+    from quake2.cmd import Cmd_Argv, Cmd_Argc
 
     if Cmd_Argc() < 2:
         return

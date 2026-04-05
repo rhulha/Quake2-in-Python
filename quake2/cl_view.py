@@ -15,6 +15,8 @@ class _ViewState:
     last_refdef = None
     vieworg = [0.0, 0.0, 0.0]
     viewangles = [0.0, 0.0, 0.0]
+    worldmodel = None
+    current_mapname = None
 
 
 def V_ClearScene():
@@ -164,6 +166,18 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
     except:
         pass
 
+    # Load world model if map changed
+    worldmodel = _ViewState.worldmodel
+    try:
+        from . import sv_main
+        from ref_gl import gl_model
+        if sv_main.server.mapname and sv_main.server.mapname != _ViewState.current_mapname:
+            worldmodel = gl_model.Mod_ForName(f"maps/{sv_main.server.mapname}.bsp", False)
+            _ViewState.worldmodel = worldmodel
+            _ViewState.current_mapname = sv_main.server.mapname
+    except Exception as e:
+        pass
+
     # Build refdef_t
     fov_y = CalcFov(fov_x, width, height)
 
@@ -184,7 +198,7 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
         entities=list(_ViewState.entities),
         dlights=list(_ViewState.dlights),
         particles=list(_ViewState.particles),
-        worldmodel=None,
+        worldmodel=worldmodel,
     )
 
     _ViewState.last_refdef = refdef
