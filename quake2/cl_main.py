@@ -1,190 +1,343 @@
-from wrapper_qpy.decorators import static_vars, TODO
-from wrapper_qpy.linker import LinkEmptyFunctions
+import json
+import os
+import time
+
+from wrapper_qpy.decorators import static_vars
 
 
-LinkEmptyFunctions(globals(), [])
+class ClientState:
+    def __init__(self):
+        self.state = 0                # 0=disconnected,1=connecting,2=connected,3=active
+        self.servername = ""
+        self.connect_time = 0.0
+        self.last_packet_time = 0.0
+        self.paused = False
+        self.demorecording = False
+        self.demofile = None
+        self.reliable_commands = []
+        self.cmd_queue = []
+        self.framecount = 0
+        self.frametime = 0.0
+        self.download_queue = []
+        self.configstrings = {}
+        self.baselines = {}
+        self.userinfo = {
+            "name": "player",
+            "skin": "male/grunt",
+            "rate": "25000",
+            "msg": "1",
+            "hand": "0",
+            "gender": "male",
+        }
+        self.net_incoming = []
+        self.net_outgoing = []
 
 
-@TODO
+cls = ClientState()
+
+
+def _now():
+    return time.time()
+
+
+def _cfg_path():
+    return "config_client.json"
+
+
 def CL_WriteDemoMessage():
-    pass
+    if not cls.demorecording or not cls.demofile:
+        return
+    msg = {
+        "time": _now(),
+        "commands": list(cls.cmd_queue),
+    }
+    cls.demofile.write((json.dumps(msg) + "\n").encode("utf-8"))
 
 
-@TODO
 def CL_Stop_f():
-    pass
+    if not cls.demorecording:
+        return
+    cls.demorecording = False
+    if cls.demofile:
+        cls.demofile.close()
+        cls.demofile = None
 
 
-@TODO
-def CL_Record_f():
-    pass
+def CL_Record_f(filename="demo.q2demo"):
+    if cls.demorecording:
+        return
+    cls.demofile = open(filename, "wb")
+    cls.demorecording = True
 
 
-@TODO
-def Cmd_ForwardToServer():
-    pass
+def Cmd_ForwardToServer(command=""):
+    if cls.state < 2:
+        return
+    if command:
+        cls.reliable_commands.append(command)
 
 
-@TODO
-def CL_ForwardToServer_f():
-    pass
+def CL_ForwardToServer_f(command=""):
+    Cmd_ForwardToServer(command)
 
 
-@TODO
-def CL_Pause_f():
-    pass
+def CL_Pause_f(toggle=True):
+    if toggle is True:
+        cls.paused = not cls.paused
+    else:
+        cls.paused = bool(toggle)
 
 
-@TODO
 def CL_Quit_f():
-    pass
+    CL_Shutdown()
 
 
-@TODO
 def CL_Drop():
-    pass
+    cls.state = 0
+    cls.servername = ""
+    cls.reliable_commands = []
+    cls.cmd_queue = []
+    cls.net_incoming = []
+    cls.net_outgoing = []
 
 
-@TODO
 def CL_SendConnectPacket():
-    pass
+    if not cls.servername:
+        return
+    cls.net_outgoing.append({
+        "type": "connect",
+        "server": cls.servername,
+        "userinfo": dict(cls.userinfo),
+        "time": _now(),
+    })
 
 
-@TODO
 def CL_CheckForResend():
-    pass
+    if cls.state != 1:
+        return
+    if (_now() - cls.connect_time) >= 3.0:
+        cls.connect_time = _now()
+        CL_SendConnectPacket()
 
 
-@TODO
-def CL_Connect_f():
-    pass
+def CL_Connect_f(servername="localhost"):
+    cls.servername = servername
+    cls.state = 1
+    cls.connect_time = _now()
+    CL_SendConnectPacket()
 
 
-@TODO
-def CL_Rcon_f():
-    pass
+def CL_Rcon_f(command=""):
+    if not command:
+        return
+    cls.net_outgoing.append({"type": "rcon", "command": command, "time": _now()})
 
 
-@TODO
 def CL_ClearState():
-    pass
+    cls.configstrings = {}
+    cls.baselines = {}
+    cls.download_queue = []
+    cls.framecount = 0
 
 
-@TODO
 def CL_Disconnect():
-    pass
+    if cls.state == 0:
+        return
+    cls.net_outgoing.append({"type": "disconnect", "time": _now()})
+    CL_Drop()
 
 
-@TODO
 def CL_Disconnect_f():
-    pass
+    CL_Disconnect()
 
 
-@TODO
-def CL_Packet_f():
-    pass
+def CL_Packet_f(packet=None):
+    if packet is not None:
+        cls.net_incoming.append(packet)
 
 
-@TODO
 def CL_Changing_f():
-    pass
+    cls.state = 2
+    CL_ClearState()
 
 
-@TODO
 def CL_Reconnect_f():
-    pass
+    if not cls.servername:
+        return
+    CL_Disconnect()
+    CL_Connect_f(cls.servername)
 
 
-@TODO
-def CL_ParseStatusMessage():
-    pass
+def CL_ParseStatusMessage(msg=None):
+    if msg is None:
+        return {}
+    return {"status": str(msg)}
 
 
-@TODO
-def CL_PingServers_f():
-    pass
+def CL_PingServers_f(servers=None):
+    if servers is None:
+        servers = ["localhost"]
+    for s in servers:
+        cls.net_outgoing.append({"type": "ping", "server": s, "time": _now()})
 
 
-@TODO
 def CL_Skins_f():
-    pass
+    cls.net_outgoing.append({"type": "skins", "time": _now()})
 
 
-@TODO
-def CL_ConnectionlessPacket():
-    pass
+def CL_ConnectionlessPacket(packet=None):
+    if not packet:
+        return
+    cmd = packet.get("cmd", "") if isinstance(packet, dict) else ""
+    if cmd == "client_connect_ok":
+        cls.state = 2
+    elif cmd == "print":
+        text = packet.get("text", "")
+        if text:
+            print(text)
+    elif cmd == "status":
+        CL_ParseStatusMessage(packet.get("text", ""))
 
 
-@TODO
 def CL_DumpPackets():
-    pass
+    dumped = list(cls.net_incoming)
+    cls.net_incoming = []
+    return dumped
 
 
-@TODO
 def CL_ReadPackets():
-    pass
+    packets = CL_DumpPackets()
+    for p in packets:
+        if isinstance(p, dict) and p.get("connectionless"):
+            CL_ConnectionlessPacket(p)
+            continue
+        cls.last_packet_time = _now()
+        if cls.state == 2:
+            cls.state = 3
 
 
-@TODO
 def CL_FixUpGender():
-    pass
+    gender = cls.userinfo.get("gender", "")
+    if gender not in ("male", "female", "none"):
+        cls.userinfo["gender"] = "male"
 
 
-@TODO
-def CL_Userinfo_f():
-    pass
+def CL_Userinfo_f(new_values=None):
+    if isinstance(new_values, dict):
+        cls.userinfo.update(new_values)
+    CL_FixUpGender()
+    return dict(cls.userinfo)
 
 
-@TODO
 def CL_Snd_Restart_f():
-    pass
+    try:
+        from .snd_dma import S_Shutdown, S_Init
+        S_Shutdown()
+        S_Init()
+    except Exception:
+        return
 
 
-@TODO
 def CL_RequestNextDownload():
-    pass
+    if not cls.download_queue:
+        return
+    asset = cls.download_queue.pop(0)
+    cls.net_outgoing.append({"type": "download", "asset": asset, "time": _now()})
 
 
-@TODO
-def CL_Precache_f():
-    pass
+def CL_Precache_f(assets=None):
+    if assets is None:
+        assets = []
+    cls.download_queue.extend(list(assets))
+    CL_RequestNextDownload()
 
 
-@TODO
 def CL_InitLocal():
-    pass
+    CL_ClearState()
+    cfg = _cfg_path()
+    if os.path.exists(cfg):
+        try:
+            with open(cfg, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    cls.userinfo.update(data.get("userinfo", {}))
+        except Exception:
+            return
 
 
-@TODO
 def CL_WriteConfiguration():
-    pass
+    data = {"userinfo": cls.userinfo}
+    with open(_cfg_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 
-@TODO
 def CL_FixCvarCheats():
-    pass
+    return
 
 
-@TODO
+def CL_SendCommandToServer(cmd):
+    cls.cmd_queue.append(cmd)
+
+
 def CL_SendCommand():
-    pass
+    if cls.state < 2:
+        return
+
+    try:
+        from .cl_input import CL_SendCmd
+        cmd = CL_SendCmd()
+        if cmd is not None:
+            CL_SendCommandToServer(cmd)
+    except Exception:
+        return
+
+    while cls.reliable_commands:
+        r = cls.reliable_commands.pop(0)
+        cls.net_outgoing.append({"type": "cmd", "text": r, "time": _now()})
 
 
-@TODO
-def CL_Frame():
-    pass
+def CL_Frame(msec=0):
+    if cls.paused:
+        return
+
+    cls.frametime = float(msec) / 1000.0 if msec else 0.0
+    CL_CheckForResend()
+    CL_ReadPackets()
+    CL_SendCommand()
+
+    try:
+        from .cl_view import V_RenderView
+        V_RenderView(0.0)
+    except Exception:
+        return
+
+    if cls.demorecording:
+        CL_WriteDemoMessage()
+
+    cls.framecount += 1
 
 
-@TODO
 def CL_Init():
-    pass
+    CL_InitLocal()
+    cls.state = 0
 
 
-@TODO
 @static_vars(isdown=False)
 def CL_Shutdown():
     if CL_Shutdown.isdown:
         print("recursive shutdown")
         return
     CL_Shutdown.isdown = True
-    CL_WriteConfiguration()
+
+    try:
+        CL_Stop_f()
+    except Exception:
+        return
+
+    try:
+        CL_WriteConfiguration()
+    except Exception:
+        return
+
+    CL_Drop()
+    CL_Shutdown.isdown = False
