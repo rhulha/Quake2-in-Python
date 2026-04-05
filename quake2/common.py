@@ -827,7 +827,7 @@ def Qcommon_Init(argc, argv):
 
         # Default action: load first map
         try:
-            Cbuf_AddText("d1\n")
+            Cbuf_AddText("map q2dm1\n")
             Cbuf_Execute()
         except:
             pass

@@ -298,6 +298,7 @@ def FS_AddGameDirectory(dir_path):
         pak_path = os.path.join(dir_path, pak_name)
         pack = FS_LoadPackFile(pak_path)
         if pack:
+            print(f"Loaded PAK: {pak_name} ({pack.numfiles} files)")
             # Add to search path
             new_search = SearchPath(pak_name, pack)
             new_search.next = fs_searchpaths
@@ -402,5 +403,8 @@ def COM_StripExtension(in_str):
 
 def COM_FileBase(in_str):
     return
+
+
+from .common import Com_Printf, Com_DPrintf, Com_Error
 
 
