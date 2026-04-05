@@ -14,11 +14,11 @@ LinkEmptyFunctions(globals(), ["Com_Printf"])
 def R_DrawWorld(worldmodel):
     """Draw world geometry"""
     try:
+        glColor3f(1.0, 1.0, 1.0)
+        glDisable(GL_BLEND)
+
         if not worldmodel:
             return
-
-        glColor4f(1.0, 1.0, 1.0, 1.0)
-        glDisable(GL_BLEND)
 
         # Render all faces
         if hasattr(worldmodel, 'faces') and worldmodel.faces:
@@ -72,13 +72,17 @@ def _draw_face(model, face):
 
         # Render polygon
         if len(vertices) >= 3:
-            glBegin(GL_POLYGON)
-            for v in vertices:
-                glVertex3f(v[0], v[1], v[2])
-            glEnd()
+            try:
+                glColor3f(0.8, 0.8, 0.8)  # Light gray color
+                glBegin(GL_POLYGON)
+                for v in vertices:
+                    glVertex3f(v[0], v[1], v[2])
+                glEnd()
+            except:
+                pass
 
     except Exception as e:
-        Com_Printf(f"_draw_face error: {e}\n")
+        pass
 
 
 def _read_surfedges(lump_data, offset, count):

@@ -108,9 +108,8 @@ def GLimp_InitGL():
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
 
-        # Lighting
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
+        # Disable lighting for immediate mode rendering (we'll use explicit colors)
+        glDisable(GL_LIGHTING)
 
         # Texturing
         glEnable(GL_TEXTURE_2D)

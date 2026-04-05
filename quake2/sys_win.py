@@ -101,16 +101,7 @@ def WinMain(argc, argv):
                 if msec > 200:  # Cap at 200ms (5 FPS minimum)
                     msec = 200
 
-                # Handle input
-                try:
-                    should_continue = IN_Frame()
-                    if not should_continue:
-                        print("Input system signaled shutdown")
-                        break
-                except Exception as e:
-                    print(f"IN_Frame error: {e}")
-
-                # Run main frame
+                # Run main frame first (renders scene)
                 try:
                     Qcommon_Frame(msec)
                 except Exception as e:
@@ -118,6 +109,15 @@ def WinMain(argc, argv):
                     import traceback
                     traceback.print_exc()
                     break
+
+                # Handle input after rendering (so screenshots capture rendered frame)
+                try:
+                    should_continue = IN_Frame()
+                    if not should_continue:
+                        print("Input system signaled shutdown")
+                        break
+                except Exception as e:
+                    print(f"IN_Frame error: {e}")
 
                 frame_count += 1
 

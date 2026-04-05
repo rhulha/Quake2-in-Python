@@ -307,7 +307,7 @@ def CL_Frame(msec=0):
 
     try:
         from .cl_view import V_RenderView
-        V_RenderView(0.0)
+        V_RenderView(fov_x=90.0, width=800, height=600)
     except Exception:
         return
 

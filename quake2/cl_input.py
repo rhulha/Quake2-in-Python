@@ -41,6 +41,8 @@ class _State:
     key_dest_game = True
     anykeydown = False
     lightlevel = 0
+    last_screenshot_time = 0
+    screenshot_interval = 5.0  # Screenshot every 5 seconds
 
 
 in_klook = kbutton_t()
@@ -281,6 +283,20 @@ def IN_Frame():
             elif event.type == pygame.MOUSEBUTTONUP:
                 _handle_mousebuttonup(event.button)
 
+        # Periodic screenshot
+        current_time = time.time()
+        if current_time - _State.last_screenshot_time >= _State.screenshot_interval:
+            try:
+                from ref_gl.gl_screenshot import take_screenshot
+                surface = pygame.display.get_surface()
+                if surface:
+                    w, h = surface.get_size()
+                    take_screenshot(w, h)
+                    _State.last_screenshot_time = current_time
+                    print(f"Auto-screenshot saved")
+            except:
+                pass
+
         return True
 
     except Exception as e:
@@ -332,6 +348,19 @@ def _handle_keydown(key):
     # ESC - menu (set key_dest_game)
     elif key == pygame.K_ESCAPE:
         _State.key_dest_game = False
+
+    # F12 - screenshot
+    elif key == pygame.K_F12:
+        try:
+            from ref_gl.gl_screenshot import take_screenshot
+            # Get current window size from pygame
+            import pygame
+            surface = pygame.display.get_surface()
+            if surface:
+                w, h = surface.get_size()
+                take_screenshot(w, h)
+        except:
+            pass
 
 
 def _handle_keyup(key):
