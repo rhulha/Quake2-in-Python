@@ -1,60 +1,255 @@
-from wrapper_qpy.decorators import TODO
-from wrapper_qpy.linker import LinkEmptyFunctions
+import time
+from dataclasses import dataclass, field
 
 
-LinkEmptyFunctions(globals(), [])
+@dataclass
+class kbutton_t:
+    down: list = field(default_factory=lambda: [0, 0])
+    downtime: int = 0
+    msec: int = 0
+    state: int = 0
 
 
-@TODO
-def KeyDown(b):
-    pass
+@dataclass
+class usercmd_t:
+    angles: list = field(default_factory=lambda: [0, 0, 0])
+    forwardmove: float = 0.0
+    sidemove: float = 0.0
+    upmove: float = 0.0
+    buttons: int = 0
+    msec: int = 0
+    impulse: int = 0
+    lightlevel: int = 0
 
 
-@TODO
-def KeyUp(b):
-    pass
+BUTTON_ATTACK = 1
+BUTTON_USE = 2
+BUTTON_ANY = 128
+
+PITCH = 0
+YAW = 1
 
 
-@TODO
+def _now_msec():
+    return int(time.time() * 1000)
+
+
+class _State:
+    viewangles = [0.0, 0.0, 0.0]
+    frame_player_delta_angles = [0, 0, 0]
+    frametime = 0.016
+    key_dest_game = True
+    anykeydown = False
+    lightlevel = 0
+
+
+in_klook = kbutton_t()
+in_left = kbutton_t()
+in_right = kbutton_t()
+in_forward = kbutton_t()
+in_back = kbutton_t()
+in_lookup = kbutton_t()
+in_lookdown = kbutton_t()
+in_moveleft = kbutton_t()
+in_moveright = kbutton_t()
+in_strafe = kbutton_t()
+in_speed = kbutton_t()
+in_use = kbutton_t()
+in_attack = kbutton_t()
+in_up = kbutton_t()
+in_down = kbutton_t()
+
+in_impulse = 0
+
+cl_upspeed = 200.0
+cl_forwardspeed = 200.0
+cl_sidespeed = 200.0
+cl_yawspeed = 140.0
+cl_pitchspeed = 150.0
+cl_run = 0.0
+cl_anglespeedkey = 1.5
+
+sys_frame_time = _now_msec()
+frame_msec = 16
+old_sys_frame_time = sys_frame_time
+
+
+def KeyDown(b, key=-1, timestamp=None):
+    if key == b.down[0] or key == b.down[1]:
+        return
+
+    if not b.down[0]:
+        b.down[0] = key
+    elif not b.down[1]:
+        b.down[1] = key
+    else:
+        return
+
+    if b.state & 1:
+        return
+
+    b.downtime = int(timestamp if timestamp is not None else (_now_msec() - 100))
+    b.state |= 1 | 2
+
+
+def KeyUp(b, key=-1, timestamp=None):
+    if key == -1:
+        b.down[0] = b.down[1] = 0
+        b.state = 4
+        return
+
+    if b.down[0] == key:
+        b.down[0] = 0
+    elif b.down[1] == key:
+        b.down[1] = 0
+    else:
+        return
+
+    if b.down[0] or b.down[1]:
+        return
+    if not (b.state & 1):
+        return
+
+    uptime = int(timestamp if timestamp is not None else _now_msec())
+    b.msec += max(1, uptime - b.downtime)
+    b.state &= ~1
+    b.state |= 4
+
+
 def CL_KeyState(key):
-    pass
+    global frame_msec, sys_frame_time
+
+    key.state &= 1
+    msec = key.msec
+    key.msec = 0
+
+    if key.state:
+        msec += sys_frame_time - key.downtime
+        key.downtime = sys_frame_time
+
+    if frame_msec <= 0:
+        return 0.0
+    val = float(msec) / float(frame_msec)
+    if val < 0:
+        return 0.0
+    if val > 1:
+        return 1.0
+    return val
 
 
-@TODO
 def CL_AdjustAngles():
-    pass
+    speed = _State.frametime * cl_anglespeedkey if (in_speed.state & 1) else _State.frametime
+
+    if not (in_strafe.state & 1):
+        _State.viewangles[YAW] -= speed * cl_yawspeed * CL_KeyState(in_right)
+        _State.viewangles[YAW] += speed * cl_yawspeed * CL_KeyState(in_left)
+
+    if in_klook.state & 1:
+        _State.viewangles[PITCH] -= speed * cl_pitchspeed * CL_KeyState(in_forward)
+        _State.viewangles[PITCH] += speed * cl_pitchspeed * CL_KeyState(in_back)
+
+    _State.viewangles[PITCH] -= speed * cl_pitchspeed * CL_KeyState(in_lookup)
+    _State.viewangles[PITCH] += speed * cl_pitchspeed * CL_KeyState(in_lookdown)
 
 
-@TODO
-def CL_BaseMove():
-    pass
+def CL_BaseMove(cmd):
+    CL_AdjustAngles()
+
+    cmd.angles[:] = list(_State.viewangles)
+
+    if in_strafe.state & 1:
+        cmd.sidemove += cl_sidespeed * CL_KeyState(in_right)
+        cmd.sidemove -= cl_sidespeed * CL_KeyState(in_left)
+
+    cmd.sidemove += cl_sidespeed * CL_KeyState(in_moveright)
+    cmd.sidemove -= cl_sidespeed * CL_KeyState(in_moveleft)
+
+    cmd.upmove += cl_upspeed * CL_KeyState(in_up)
+    cmd.upmove -= cl_upspeed * CL_KeyState(in_down)
+
+    if not (in_klook.state & 1):
+        cmd.forwardmove += cl_forwardspeed * CL_KeyState(in_forward)
+        cmd.forwardmove -= cl_forwardspeed * CL_KeyState(in_back)
+
+    if (bool(in_speed.state & 1)) ^ bool(int(cl_run)):
+        cmd.forwardmove *= 2
+        cmd.sidemove *= 2
+        cmd.upmove *= 2
 
 
-@TODO
 def CL_ClampPitch():
-    pass
+    pitch = _State.frame_player_delta_angles[PITCH]
+    if pitch > 180:
+        pitch -= 360
+    if _State.viewangles[PITCH] + pitch > 89:
+        _State.viewangles[PITCH] = 89 - pitch
+    if _State.viewangles[PITCH] + pitch < -89:
+        _State.viewangles[PITCH] = -89 - pitch
 
 
-@TODO
-def CL_FinishMove():
-    pass
+def _angle2short(a):
+    return int(a * 65536.0 / 360.0) & 65535
 
 
-@TODO
+def CL_FinishMove(cmd):
+    global in_impulse
+
+    if in_attack.state & 3:
+        cmd.buttons |= BUTTON_ATTACK
+    in_attack.state &= ~2
+
+    if in_use.state & 3:
+        cmd.buttons |= BUTTON_USE
+    in_use.state &= ~2
+
+    if _State.anykeydown and _State.key_dest_game:
+        cmd.buttons |= BUTTON_ANY
+
+    ms = int(_State.frametime * 1000)
+    if ms > 250:
+        ms = 100
+    cmd.msec = ms
+
+    CL_ClampPitch()
+    for i in range(3):
+        cmd.angles[i] = _angle2short(_State.viewangles[i])
+
+    cmd.impulse = in_impulse
+    in_impulse = 0
+    cmd.lightlevel = int(_State.lightlevel)
+
+
 def CL_CreateCmd():
-    pass
+    global frame_msec, old_sys_frame_time, sys_frame_time
+
+    sys_frame_time = _now_msec()
+    frame_msec = sys_frame_time - old_sys_frame_time
+    if frame_msec < 1:
+        frame_msec = 1
+    if frame_msec > 200:
+        frame_msec = 200
+
+    cmd = usercmd_t()
+    CL_BaseMove(cmd)
+    CL_FinishMove(cmd)
+    old_sys_frame_time = sys_frame_time
+    return cmd
 
 
-@TODO
 def IN_CenterView():
-    pass
+    _State.viewangles[PITCH] = -float(_State.frame_player_delta_angles[PITCH])
 
 
-@TODO
 def CL_InitInput():
-    pass
+    return True
 
 
-@TODO
 def CL_SendCmd():
-    pass
+    cmd = CL_CreateCmd()
+    try:
+        from . import cl_main
+        if hasattr(cl_main, "CL_SendCommandToServer"):
+            cl_main.CL_SendCommandToServer(cmd)
+    except Exception:
+        pass
+    return cmd
