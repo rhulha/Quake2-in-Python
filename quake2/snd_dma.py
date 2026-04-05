@@ -1,136 +1,118 @@
-from wrapper_qpy.decorators import TODO
-from wrapper_qpy.custom_classes import Mutable
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
+_sound_names = {}
 
-@TODO
+
 def S_SoundInfo_f():
-    pass
+    return
 
 
-@TODO
 def S_Init():
-    pass
+    return
 
 
-@TODO
 def S_Shutdown():
-    pass
+    return
 
 
-@TODO
-def S_FindName():
-    pass
+def S_FindName(name=''):
+    if name in _sound_names:
+        return _sound_names[name]
+    sfx = {'name': name, 'truename': name, 'registration_sequence': 0}
+    _sound_names[name] = sfx
+    return sfx
 
 
-@TODO
 def S_AliasName(aliasname, truename):
-    pass
+    sfx = S_FindName(aliasname)
+    sfx['truename'] = truename
+    return sfx
 
 
-@TODO
 def S_BeginRegistration():
-    pass
+    return
 
 
-@TODO
 def S_RegisterSound(name):
-    pass
+    return S_FindName(name)
 
 
-@TODO
 def S_EndRegistration():
-    pass
+    return
 
 
-@TODO
 def S_PickChannel(entnum, entchannel):
-    pass
+    return {'entnum': entnum, 'entchannel': entchannel, 'sfx': None,
+            'leftvol': 0, 'rightvol': 0, 'end': 0}
 
 
-@TODO
-def S_SpatializeOrigin(origin, master_vol, dist_mult, left_vol: Mutable, right_vol: Mutable):
-    pass
+def S_SpatializeOrigin(origin, master_vol, dist_mult, left_vol, right_vol):
+    return
 
 
-@TODO
 def S_Spatialize(ch):
-    pass
+    return
 
 
-@TODO
 def S_AllocPlaysound():
-    pass
+    return {'sfx': None, 'origin': [0.0, 0.0, 0.0], 'volume': 0.0,
+            'attenuation': 0.0, 'entnum': 0, 'entchannel': 0,
+            'fixed_origin': False, 'begin': 0}
 
 
-@TODO
 def S_FreePlaysound(ps):
-    pass
+    return
 
 
-@TODO
 def S_IssuePlaysound(ps):
-    pass
+    return
 
 
-@TODO
 def S_RegisterSexedSound(ent, base):
-    pass
+    return S_FindName(base)
 
 
-@TODO
 def S_StartSound(origin, entnum, entchannel, sfx, fvol, attenuation, timeofs):
-    pass
+    return
 
 
-@TODO
 def S_StartLocalSound(sound):
-    pass
+    return
 
 
-@TODO
 def S_ClearBuffer():
-    pass
+    return
 
 
-@TODO
 def S_StopAllSounds():
-    pass
+    return
 
 
-@TODO
 def S_AddLoopSounds():
-    pass
+    return
 
 
-@TODO
 def S_RawSamples(samples, rate, width, channels, data):
-    pass
+    return
 
 
-@TODO
 def S_Update(origin, forward, right, up):
-    pass
+    return
 
 
-@TODO
 def GetSoundtime():
-    pass
+    return 0
 
 
-@TODO
 def S_Update_():
-    pass
+    return
 
 
-@TODO
 def S_Play():
-    pass
+    return
 
 
-@TODO
 def S_SoundList():
-    pass
+    return

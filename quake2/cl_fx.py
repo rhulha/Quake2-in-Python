@@ -1,198 +1,194 @@
-from wrapper_qpy.decorators import TODO
 from wrapper_qpy.linker import LinkEmptyFunctions
-
+import math
 
 LinkEmptyFunctions(globals(), [])
 
+_dlights = []
+_particles = []
+_lightstyles = []
 
-@TODO
+
 def CL_ClearLightStyles():
-    pass
+    global _lightstyles
+    _lightstyles = [None] * 256
 
 
-@TODO
 def CL_RunLightStyles():
-    pass
+    return
 
 
-@TODO
 def CL_SetLightstyle():
-    pass
+    return
 
 
-@TODO
 def CL_AddLightStyles():
-    pass
+    return
 
 
-@TODO
 def CL_ClearDlights():
-    pass
+    global _dlights
+    _dlights = []
 
 
-@TODO
-def CL_AllocDlight():
-    pass
+def CL_AllocDlight(key):
+    dl = {'key': key, 'origin': [0.0, 0.0, 0.0], 'radius': 0.0,
+          'minlight': 0.0, 'die': 0.0, 'color': [0.0, 0.0, 0.0]}
+    _dlights.append(dl)
+    return dl
 
 
-@TODO
-def CL_NewDlight():
-    pass
+def CL_NewDlight(key, x, y, z, radius, time):
+    dl = CL_AllocDlight(key)
+    dl['origin'] = [x, y, z]
+    dl['radius'] = radius
+    dl['die'] = time
 
 
-@TODO
 def CL_RunDLights():
-    pass
+    return
 
 
-@TODO
 def CL_ParseMuzzleFlash():
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadByte, msg_read as net_message
+        MSG_ReadShort(net_message)
+        MSG_ReadByte(net_message)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseMuzzleFlash2():
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadByte, msg_read as net_message
+        MSG_ReadShort(net_message)
+        MSG_ReadByte(net_message)
+    except Exception:
+        return
 
 
-@TODO
 def CL_AddDLights():
-    pass
+    return
 
 
-@TODO
 def CL_ClearParticles():
-    pass
+    global _particles
+    _particles = []
 
 
-@TODO
 def CL_ParticleEffect(org, _dir, color, count):
-    pass
+    return
 
 
-@TODO
 def CL_ParticleEffect2(org, _dir, color, count):
-    pass
+    return
 
 
-@TODO
 def CL_ParticleEffect3(org, _dir, color, count):
-    pass
+    return
 
 
-@TODO
 def CL_TeleporterParticles(ent):
-    pass
+    return
 
 
-@TODO
 def CL_LogoutEffect(org, type):
-    pass
+    return
 
 
-@TODO
 def CL_ItemRespawnParticles(org):
-    pass
+    return
 
 
-@TODO
 def CL_ExplosionParticles(org):
-    pass
+    return
 
 
-@TODO
 def CL_BigTeleportParticles(org):
-    pass
+    return
 
 
-@TODO
 def CL_BlasterParticles(org, _dir):
-    pass
+    return
 
 
-@TODO
 def CL_BlasterTrail(start, end):
-    pass
+    return
 
 
-@TODO
 def CL_QuadTrail(start, end):
-    pass
+    return
 
 
-@TODO
 def CL_FlagTrail(start, end, color):
-    pass
+    return
 
 
-@TODO
 def CL_DiminishingTrail(start, end, old, flags):
-    pass
+    return
 
 
-@TODO
 def MakeNormalVectors(forward, right, up):
-    pass
+    right[1] = -forward[0]
+    right[2] = forward[1]
+    right[0] = forward[2]
+    d = right[0]*forward[0] + right[1]*forward[1] + right[2]*forward[2]
+    for i in range(3):
+        right[i] -= d * forward[i]
+    length = math.sqrt(right[0]**2 + right[1]**2 + right[2]**2)
+    if length:
+        for i in range(3):
+            right[i] /= length
+    up[0] = right[1]*forward[2] - right[2]*forward[1]
+    up[1] = right[2]*forward[0] - right[0]*forward[2]
+    up[2] = right[0]*forward[1] - right[1]*forward[0]
 
 
-@TODO
 def CL_RocketTrail(start, end, old):
-    pass
+    return
 
 
-@TODO
 def CL_RailTrail(start, end):
-    pass
+    return
 
 
-@TODO
 def CL_IonripperTrail(start, ent):
-    pass
+    return
 
 
-@TODO
 def CL_BubbleTrail(start, end):
-    pass
+    return
 
 
-@TODO
 def CL_FlyParticles(origin, count):
-    pass
+    return
 
 
-@TODO
 def CL_FlyEffect(ent, origin):
-    pass
+    return
 
 
-@TODO
 def CL_BfgParticles(ent):
-    pass
+    return
 
 
-@TODO
 def CL_TrapParticles(ent):
-    pass
+    return
 
 
-@TODO
 def CL_BFGExplosionParticles(org):
-    pass
+    return
 
 
-@TODO
 def CL_TeleportParticles(org):
-    pass
+    return
 
 
-@TODO
 def CL_AddParticles():
-    pass
+    return
 
 
-@TODO
 def CL_EntityEvent(ent):
-    pass
+    return
 
 
 def CL_ClearEffects():

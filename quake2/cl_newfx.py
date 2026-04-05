@@ -1,125 +1,122 @@
-from wrapper_qpy.decorators import TODO
+import math
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
+PITCH = 0
+YAW = 1
+ROLL = 2
 
-@TODO
+
 def vectoangles2(value1, angles):
-    pass
+    if value1[1] == 0 and value1[0] == 0:
+        yaw = 0
+        pitch = 90 if value1[2] > 0 else 270
+    else:
+        if value1[0]:
+            yaw = math.atan2(value1[1], value1[0]) * 180 / math.pi
+        elif value1[1] > 0:
+            yaw = 90
+        else:
+            yaw = 270
+        if yaw < 0:
+            yaw += 360
+        forward = math.sqrt(value1[0]**2 + value1[1]**2)
+        pitch = math.atan2(value1[2], forward) * 180 / math.pi
+        if pitch < 0:
+            pitch += 360
+    angles[PITCH] = -pitch
+    angles[YAW] = yaw
+    angles[ROLL] = 0
 
 
-@TODO
 def CL_Flashlight(ent, pos):
-    pass
+    return
 
 
-@TODO
 def CL_ColorFlash(pos, ent, intensity, r, g, b):
-    pass
+    return
 
 
-@TODO
 def CL_DebugTrail(start, end):
-    pass
+    return
 
 
-@TODO
 def CL_SmokeTrail(start, end, colorStart, colorRun, spacing):
-    pass
+    return
 
 
-@TODO
 def CL_ForceWall(start, end, color):
-    pass
+    return
 
 
-@TODO
 def CL_FlameEffects(ent, origin):
-    pass
+    return
 
 
-@TODO
 def CL_GenericParticleEffect(org, _dir, color, count, numcolors, dispread, alphavel):
-    pass
+    return
 
 
-@TODO
 def CL_BubbleTrail2(start, end, dist):
-    pass
+    return
 
 
-@TODO
 def CL_Heatbeam(start, forward):
-    pass
+    return
 
 
-@TODO
 def CL_ParticleSteamEffect(org, _dir, color, count, magnitude):
-    pass
+    return
 
 
-@TODO
 def CL_ParticleSteamEffect2(_self):
-    pass
+    return
 
 
-@TODO
 def CL_TrackerTrail(start, end, particleColor):
-    pass
+    return
 
 
-@TODO
 def CL_Tracker_Shell(origin):
-    pass
+    return
 
 
-@TODO
 def CL_MonsterPlasma_Shell(origin):
-    pass
+    return
 
 
-@TODO
 def CL_Widowbeamout(_self):
-    pass
+    return
 
 
-@TODO
 def CL_Nukeblast(_self):
-    pass
+    return
 
 
-@TODO
 def CL_WidowSplash(org):
-    pass
+    return
 
 
-@TODO
 def CL_Tracker_Explode(origin):
-    pass
+    return
 
 
-@TODO
 def CL_TagTrail(start, end, color):
-    pass
+    return
 
 
-@TODO
 def CL_ColorExplosionParticles(org, color, run):
-    pass
+    return
 
 
-@TODO
 def CL_ParticleSmokeEffect(org, _dir, color, count, magnitude):
-    pass
+    return
 
 
-@TODO
 def CL_BlasterParticles2(org, _dir, color):
-    pass
+    return
 
 
-@TODO
 def CL_BlasterTrail2(start, end):
-    pass
+    return

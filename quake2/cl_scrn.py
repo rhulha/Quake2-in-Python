@@ -1,164 +1,131 @@
-from wrapper_qpy.decorators import TODO
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CL_AddNetgraph():
-    pass
+    return
 
 
-@TODO
 def SCR_DebugGraph(value, color):
-    pass
+    return
 
 
-@TODO
 def SCR_DrawDebugGraph():
-    pass
+    return
 
 
-@TODO
 def SCR_CenterPrint():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawCenterString():
-    pass
+    return
 
 
-@TODO
 def SCR_CheckDrawCenterString():
-    pass
+    return
 
 
-@TODO
 def SCR_CalcVrect():
-    pass
+    return
 
 
-@TODO
 def SCR_SizeUp_f():
-    pass
+    return
 
 
-@TODO
 def SCR_SizeDown_f():
-    pass
+    return
 
 
-@TODO
 def SCR_Sky_f():
-    pass
+    return
 
 
-@TODO
 def SCR_Init():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawNet():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawPause():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawLoading():
-    pass
+    return
 
 
-@TODO
 def SCR_RunConsole():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawConsole():
-    pass
+    return
 
 
-@TODO
 def SCR_BeginLoadingPlaque():
-    pass
+    return
 
 
-@TODO
 def SCR_EndLoadingPlaque():
-    pass
+    return
 
 
 def SCR_Loading_f():
     SCR_BeginLoadingPlaque()
 
 
-@TODO
 def entitycmpfnc(a, b):
-    pass
+    return (a > b) - (a < b)
 
 
-@TODO
 def SCR_TimeRefresh_f():
-    pass
+    return
 
 
-@TODO
 def SCR_AddDirtyPoint(x, y):
-    pass
+    return
 
 
-@TODO
 def SCR_DirtyScreen():
-    pass
+    return
 
 
-@TODO
 def SCR_TileClear():
-    pass
+    return
 
 
-@TODO
 def SizeHUDString(string, w, h):
-    pass
+    return
 
 
-@TODO
 def DrawHUDString(string, x, y, centerwidth, xor):
-    pass
+    return
 
 
-@TODO
 def SCR_DrawField(x, y, color, width, value):
-    pass
+    return
 
 
-@TODO
 def SCR_TouchPics():
-    pass
+    return
 
 
-@TODO
 def SCR_ExecuteLayoutString(s):
-    pass
+    return
 
 
-@TODO
 def SCR_DrawStats():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawLayout():
-    pass
+    return
 
 
-@TODO
 def SCR_UpdateScreen():
-    pass
+    return

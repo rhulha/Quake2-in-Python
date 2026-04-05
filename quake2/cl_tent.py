@@ -1,110 +1,188 @@
-from wrapper_qpy.decorators import TODO
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
+_explosions = []
+_beams = []
+_lasers = []
+_sustains = []
 
-@TODO
+
 def CL_RegisterTEntSounds():
-    pass
+    return
 
 
-@TODO
 def CL_RegisterTEntModels():
-    pass
+    return
 
 
-@TODO
 def CL_ClearTEnts():
-    pass
+    global _explosions, _beams, _lasers, _sustains
+    _explosions = []
+    _beams = []
+    _lasers = []
+    _sustains = []
 
 
-@TODO
 def CL_AllocExplosion():
-    pass
+    ex = {'ent': {'origin': [0.0, 0.0, 0.0], 'angles': [0.0, 0.0, 0.0],
+                  'flags': 0, 'model': None, 'frame': 0},
+          'type': 0, 'start': 0, 'frames': 0, 'baseframe': 0,
+          'light': 0.0, 'lightcolor': [0.0, 0.0, 0.0]}
+    _explosions.append(ex)
+    return ex
 
 
-@TODO
 def CL_SmokeAndFlash(origin):
-    pass
+    return
 
 
-@TODO
 def CL_ParseParticles():
-    pass
+    try:
+        from .common import MSG_ReadPos, MSG_ReadDir, MSG_ReadByte, msg_read as nm
+        pos = [0.0, 0.0, 0.0]
+        d = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadDir(nm, d)
+        MSG_ReadByte(nm)
+        MSG_ReadByte(nm)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseBeam(model):
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, msg_read as nm
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadPos(nm, pos)
+    except Exception:
+        return
+    return 0
 
 
-@TODO
 def CL_ParseBeam2(model):
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, MSG_ReadByte, msg_read as nm
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadPos(nm, pos)
+        MSG_ReadByte(nm)
+    except Exception:
+        return
+    return 0
 
 
-@TODO
 def CL_ParsePlayerBeam(model):
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, MSG_ReadDir, msg_read as nm
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        d = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadPos(nm, pos)
+        MSG_ReadDir(nm, d)
+    except Exception:
+        return
+    return 0
 
 
-@TODO
 def CL_ParseLightning(model):
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, msg_read as nm
+        MSG_ReadShort(nm)
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadPos(nm, pos)
+    except Exception:
+        return
+    return 0
 
 
-@TODO
 def CL_ParseLaser(colors):
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, msg_read as nm
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadPos(nm, pos)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseSteam():
-    pass
+    try:
+        from .common import (MSG_ReadShort, MSG_ReadPos, MSG_ReadDir,
+                              MSG_ReadByte, MSG_ReadLong, msg_read as nm)
+        MSG_ReadShort(nm)
+        MSG_ReadByte(nm)
+        pos = [0.0, 0.0, 0.0]
+        d = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadDir(nm, d)
+        MSG_ReadByte(nm)
+        MSG_ReadShort(nm)
+        MSG_ReadShort(nm)
+        MSG_ReadLong(nm)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseWidow():
-    pass
+    try:
+        from .common import MSG_ReadShort, MSG_ReadPos, msg_read as nm
+        MSG_ReadShort(nm)
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseNuke():
-    pass
+    try:
+        from .common import MSG_ReadPos, MSG_ReadFloat, msg_read as nm
+        pos = [0.0, 0.0, 0.0]
+        MSG_ReadPos(nm, pos)
+        MSG_ReadFloat(nm)
+        MSG_ReadFloat(nm)
+    except Exception:
+        return
 
 
-@TODO
 def CL_ParseTEnt():
-    pass
+    try:
+        from .common import MSG_ReadByte, msg_read as nm
+        MSG_ReadByte(nm)
+    except Exception:
+        return
 
 
-@TODO
 def CL_AddBeams():
-    pass
+    return
 
 
-@TODO
 def CL_AddPlayerBeams():
-    pass
+    return
 
 
-@TODO
 def CL_AddExplosions():
-    pass
+    return
 
 
-@TODO
 def CL_AddLasers():
-    pass
+    return
 
 
-@TODO
 def CL_ProcessSustain():
-    pass
+    return
 
 
-@TODO
 def CL_AddTEnts():
-    pass
+    CL_AddBeams()
+    CL_AddPlayerBeams()
+    CL_AddExplosions()
+    CL_AddLasers()
+    CL_ProcessSustain()

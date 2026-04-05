@@ -150,31 +150,31 @@ def Default_MenuKey(m, key):
 # --------------------------------------------------------------------------
 
 def M_Banner(name):
-    pass
+    return
 
 
 def M_DrawCharacter(cx, cy, num):
-    pass
+    return
 
 
 def M_Print(cx, cy, _str):
-    pass
+    return
 
 
 def M_PrintWhite(cx, cy, _str):
-    pass
+    return
 
 
 def M_DrawPic(x, y, pic):
-    pass
+    return
 
 
 def M_DrawCursor(x, y, f):
-    pass
+    return
 
 
 def M_DrawTextBox(x, y, width, lines):
-    pass
+    return
 
 
 # --------------------------------------------------------------------------
@@ -182,7 +182,7 @@ def M_DrawTextBox(x, y, width, lines):
 # --------------------------------------------------------------------------
 
 def M_Main_Draw():
-    pass
+    return
 
 
 def M_Main_Key(key):
@@ -232,11 +232,11 @@ def StartNetworkServerFunc(unused):
 
 
 def Multiplayer_MenuInit():
-    pass
+    return
 
 
 def Multiplayer_MenuDraw():
-    pass
+    return
 
 
 def Multiplayer_MenuKey(key):
@@ -299,11 +299,11 @@ def M_FindKeysForCommand(command, twokeys):
 
 
 def KeyCursorDrawFunc(menu):
-    pass
+    return
 
 
 def DrawKeyBindingFunc(_self):
-    pass
+    return
 
 
 def KeyBindingFunc(_self):
@@ -317,7 +317,7 @@ def Keys_MenuInit():
 
 
 def Keys_MenuDraw():
-    pass
+    return
 
 
 def Keys_MenuKey(key):
@@ -366,7 +366,7 @@ def CrosshairFunc(unused):
 
 
 def JoystickFunc(unused):
-    pass
+    return
 
 
 def CustomizeControlsFunc(unused):
@@ -384,7 +384,7 @@ def FreeLookFunc(unused):
 
 
 def MouseSpeedFunc(unused):
-    pass
+    return
 
 
 def NoAltTabFunc(unused):
@@ -397,7 +397,7 @@ def ClampCvar(_min, _max, value):
 
 
 def ControlsSetMenuItemValues():
-    pass
+    return
 
 
 def ControlsResetDefaultsFunc(unused):
@@ -430,11 +430,11 @@ def LookstrafeFunc(unused):
 
 
 def UpdateVolumeFunc(unused):
-    pass
+    return
 
 
 def UpdateCDVolumeFunc(unused):
-    pass
+    return
 
 
 def ConsoleFunc(unused):
@@ -447,7 +447,7 @@ def ConsoleFunc(unused):
 
 
 def UpdateSoundQualityFunc(unused):
-    pass
+    return
 
 
 def Options_MenuInit():
@@ -472,7 +472,7 @@ def Options_MenuInit():
 
 
 def Options_MenuDraw():
-    pass
+    return
 
 
 def Options_MenuKey(key):
@@ -489,7 +489,7 @@ def M_Menu_Options_f():
 # --------------------------------------------------------------------------
 
 def M_Credits_MenuDraw():
-    pass
+    return
 
 
 def M_Credits_Key(key):
@@ -561,7 +561,7 @@ def Game_MenuInit():
 
 
 def Game_MenuDraw():
-    pass
+    return
 
 
 def Game_MenuKey(key):
@@ -623,7 +623,7 @@ def LoadGame_MenuInit():
 
 
 def LoadGame_MenuDraw():
-    pass
+    return
 
 
 def LoadGame_MenuKey(key):
@@ -659,7 +659,7 @@ def SaveGameCallback(_self):
 
 
 def SaveGame_MenuDraw():
-    pass
+    return
 
 
 def SaveGame_MenuInit():
@@ -719,7 +719,7 @@ def AddressBookFunc(_self):
 
 
 def NullCursorDraw(_self):
-    pass
+    return
 
 
 def SearchLocalGames():
@@ -743,7 +743,7 @@ def JoinServer_MenuInit():
 
 
 def JoinServer_MenuDraw():
-    pass
+    return
 
 
 def JoinServer_MenuKey(key):
@@ -778,7 +778,7 @@ def DMOptionsFunc(_self):
 
 
 def RulesChangeFunc(_self):
-    pass
+    return
 
 
 def StartServerActionFunc(_self):
@@ -791,11 +791,11 @@ def StartServerActionFunc(_self):
 
 
 def StartServer_MenuInit():
-    pass
+    return
 
 
 def StartServer_MenuDraw():
-    pass
+    return
 
 
 def StartServer_MenuKey(key):
@@ -812,15 +812,15 @@ def M_Menu_StartServer_f():
 # --------------------------------------------------------------------------
 
 def DMFlagCallback(_self):
-    pass
+    return
 
 
 def DMOptions_MenuInit():
-    pass
+    return
 
 
 def DMOptions_MenuDraw():
-    pass
+    return
 
 
 def DMOptions_MenuKey(key):
@@ -837,15 +837,15 @@ def M_Menu_DMOptions_f():
 # --------------------------------------------------------------------------
 
 def DownloadCallback(_self):
-    pass
+    return
 
 
 def DownloadOptions_MenuInit():
-    pass
+    return
 
 
 def DownloadOptions_MenuDraw():
-    pass
+    return
 
 
 def DownloadOptions_MenuKey(key):
@@ -906,7 +906,7 @@ def AddressBook_MenuKey(key):
 
 
 def AddressBook_MenuDraw():
-    pass
+    return
 
 
 def M_Menu_AddressBook_f():
@@ -923,15 +923,15 @@ def DownloadOptionsFunc(_self):
 # --------------------------------------------------------------------------
 
 def HandednessCallback(unused):
-    pass
+    return
 
 
 def RateCallback(unused):
-    pass
+    return
 
 
 def ModelCallback(unused):
-    pass
+    return
 
 
 def FreeFileList(_list, n):
@@ -966,7 +966,7 @@ def PlayerConfig_MenuInit():
 
 
 def PlayerConfig_MenuDraw():
-    pass
+    return
 
 
 def PlayerConfig_MenuKey(key):
@@ -998,7 +998,7 @@ def M_Quit_Key(key):
 
 
 def M_Quit_Draw():
-    pass
+    return
 
 
 def M_Menu_Quit_f():
