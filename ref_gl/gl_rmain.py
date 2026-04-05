@@ -155,6 +155,13 @@ def R_RenderFrame(refdef_in):
         except Exception as e:
             pass
 
+        # Render dynamic lights
+        try:
+            from . import gl_light
+            gl_light.R_RenderDlights()
+        except Exception as e:
+            pass
+
         # Render particles
         try:
             R_DrawParticles()
@@ -164,6 +171,19 @@ def R_RenderFrame(refdef_in):
         # Post-process effects
         try:
             R_PolyBlend()
+        except Exception as e:
+            pass
+
+        # Draw 2D HUD
+        try:
+            from . import gl_draw
+            gl_draw.DrawCrosshair()
+
+            # Draw HUD stats (if available)
+            player_state = getattr(refdef, 'player_state', None)
+            if player_state:
+                gl_draw.SCR_DrawHUD(player_state)
+
         except Exception as e:
             pass
 

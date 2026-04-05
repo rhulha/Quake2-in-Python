@@ -146,7 +146,7 @@ def Load_MD2(filename):
 # ===== Render Pipeline =====
 
 def R_DrawAliasModel(ent):
-    """Draw MD2 (alias) model with animation"""
+    """Draw MD2 (alias) model with animation and lighting"""
     try:
         if not ent or not ent.model:
             return
@@ -159,6 +159,13 @@ def R_DrawAliasModel(ent):
         model_data = ent.model.mesh_data if hasattr(ent.model, 'mesh_data') else None
         if not model_data:
             return
+
+        # Setup entity lighting
+        try:
+            from . import gl_light
+            gl_light.SetupEntityLighting(ent, ent.model)
+        except:
+            glColor3f(1.0, 1.0, 1.0)  # Default white if lighting fails
 
         # Get animation frame
         frame = int(ent.frame) % len(model_data['frames'])
