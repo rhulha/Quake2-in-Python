@@ -5,26 +5,22 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CL_CheckPredictionError():
-    pass
+    return
 
 
-@TODO
 def CL_ClipMoveToEntities(start, mins, maxs, end, tr):
-    pass
+    return
 
 
-@TODO
 def CL_PMTrace(start, mins, maxs, end):
-    pass
+    return
 
 
-@TODO
 def CL_PMpointcontents(point):
-    pass
+    return
 
 
-@TODO
 def CL_PredictMovement():
-    pass
+    return
+

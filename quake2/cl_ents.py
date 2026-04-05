@@ -5,61 +5,50 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CL_ParseEntityBits(bits):
-    pass
+    return
 
 
-@TODO
 def CL_ParseDelta(_from, _to, number, bits):
-    pass
+    return
 
 
-@TODO
 def CL_DeltaEntity(frame, newnum, old, bits):
-    pass
+    return
 
 
-@TODO
 def CL_ParsePacketEntities(oldframe, newframe):
-    pass
+    return
 
 
-@TODO
 def CL_ParsePlayerstate(oldframe, newframe):
-    pass
+    return
 
 
-@TODO
 def CL_FireEntityEvents(frame):
-    pass
+    return
 
 
-@TODO
 def CL_ParseFrame():
-    pass
+    return
 
 
-@TODO
 def CL_AddPacketEntities(frame):
-    pass
+    return
 
 
-@TODO
 def CL_AddViewWeapon(os, ops):
-    pass
+    return
 
 
-@TODO
 def CL_CalcViewValues():
-    pass
+    return
 
 
-@TODO
 def CL_AddEntities():
-    pass
+    return
 
 
-@TODO
 def CL_GetEntitySoundOrigin():
-    pass
+    return
+

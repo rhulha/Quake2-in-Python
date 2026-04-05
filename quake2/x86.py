@@ -5,26 +5,22 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def x86_TimerStart():
-    pass
+    return
 
 
-@TODO
 def x86_TimerStop():
-    pass
+    return
 
 
-@TODO
 def x86_TimerStopBias():
-    pass
+    return
 
 
-@TODO
 def x86_TimerInit(smallest, length):
-    pass
+    return
 
 
-@TODO
 def x86_TimerGetHistogram():
-    pass
+    return
+

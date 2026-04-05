@@ -7,106 +7,86 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def tank_sight():
-    pass
+    return
 
 
-@TODO
 def tank_footstep():
-    pass
+    return
 
 
-@TODO
 def tank_thud():
-    pass
+    return
 
 
-@TODO
 def tank_windup():
-    pass
+    return
 
 
-@TODO
 def tank_idle():
-    pass
+    return
 
 
-@TODO
 def tank_stand():
-    pass
+    return
 
 
-@TODO
 def tank_walk():
-    pass
+    return
 
 
-@TODO
 def tank_run():
-    pass
+    return
 
 
-@TODO
 def tank_pain():
-    pass
+    return
 
 
-@TODO
 def TankBlaster():
-    pass
+    return
 
 
-@TODO
 def TankStrike():
-    pass
+    return
 
 
-@TODO
 def TankRocket():
-    pass
+    return
 
 
-@TODO
 def TankMachineGun():
-    pass
+    return
 
 
-@TODO
 def tank_reattack_blaster():
-    pass
+    return
 
 
-@TODO
 def tank_poststrike():
-    pass
+    return
 
 
-@TODO
 def tank_refire_rocket():
-    pass
+    return
 
 
-@TODO
 def tank_doattack_rocket():
-    pass
+    return
 
 
-@TODO
 def tank_attack():
-    pass
+    return
 
 
-@TODO
 def tank_dead():
-    pass
+    return
 
 
-@TODO
 def tank_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_tank():
-    pass
+    return
+

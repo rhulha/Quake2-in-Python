@@ -5,35 +5,29 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def S_WriteLinearBlastStereo16():
-    pass
+    return
 
 
-@TODO
 def S_TransferStereo16(pbuf, endtime):
-    pass
+    return
 
 
-@TODO
 def S_TransferPaintBuffer(endtime):
-    pass
+    return
 
 
-@TODO
 def S_PaintChannels(endtime):
-    pass
+    return
 
 
-@TODO
 def S_InitScaletable():
-    pass
+    return
 
-@TODO
 def S_PaintChannelFrom8(ch, sc, count, offset):
-    pass
+    return
 
 
-@TODO
 def S_PaintChannelFrom16(ch, sc, count, offset):
-    pass
+    return
+

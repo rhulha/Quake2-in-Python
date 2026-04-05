@@ -15,68 +15,56 @@ def Sys_Error(error):
     # TODO: check qwclsemaphore & DeinitConProc()
     exit(1)
 
-@TODO
 def Sys_Quit():
-    pass
+    return
 
 
-@TODO
 def WinError():
-    pass
+    return
 
 
-@TODO
 def Sys_ScanForCD():
-    pass
+    return
 
 
 def Sys_CopyProtect():
-    pass
+    return
 
 
-@TODO
 def Sys_Init():
-    pass
+    return
 
 
-@TODO
 def Sys_ConsoleInput():
-    pass
+    return
 
 
-@TODO
 def Sys_ConsoleOutput(string):
-    pass
+    return
 
 
-@TODO
 def Sys_SendKeyEvents():
-    pass
+    return
 
 
-@TODO
 def Sys_GetClipboardData():
-    pass
+    return
 
 
-@TODO
 def Sys_AppActivate():
-    pass
+    return
 
 
-@TODO
 def Sys_UnloadGame():
-    pass
+    return
 
 
-@TODO
 def Sys_GetGameAPI():
-    pass
+    return
 
 
-@TODO
 def ParseCommandLine():
-    pass
+    return
 
 
 @TODO
@@ -87,3 +75,5 @@ def WinMain(argc, argv):
 
 
 from .common import Qcommon_Init
+
+

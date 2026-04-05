@@ -7,71 +7,58 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def InitGame():
-    pass
+    return
 
 
-@TODO
 def WriteField1():
-    pass
+    return
 
 
-@TODO
 def WriteField2():
-    pass
+    return
 
 
-@TODO
 def ReadField():
-    pass
+    return
 
 
-@TODO
 def WriteClient():
-    pass
+    return
 
 
-@TODO
 def ReadClient():
-    pass
+    return
 
 
-@TODO
 def WriteGame():
-    pass
+    return
 
 
-@TODO
 def ReadGame():
-    pass
+    return
 
 
-@TODO
 def WriteEdict():
-    pass
+    return
 
 
-@TODO
 def WriteLevelLocals():
-    pass
+    return
 
 
-@TODO
 def ReadEdict():
-    pass
+    return
 
 
-@TODO
 def ReadLevelLocals():
-    pass
+    return
 
 
-@TODO
 def WriteLevel():
-    pass
+    return
 
 
-@TODO
 def ReadLevel():
-    pass
+    return
+

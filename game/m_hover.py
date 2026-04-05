@@ -7,71 +7,58 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def hover_sight():
-    pass
+    return
 
 
-@TODO
 def hover_search():
-    pass
+    return
 
 
-@TODO
 def hover_reattack():
-    pass
+    return
 
 
-@TODO
 def hover_fire_blaster():
-    pass
+    return
 
 
-@TODO
 def hover_stand():
-    pass
+    return
 
 
-@TODO
 def hover_run():
-    pass
+    return
 
 
-@TODO
 def hover_walk():
-    pass
+    return
 
 
-@TODO
 def hover_start_attack():
-    pass
+    return
 
 
-@TODO
 def hover_attack():
-    pass
+    return
 
 
-@TODO
 def hover_pain():
-    pass
+    return
 
 
-@TODO
 def hover_deadthink():
-    pass
+    return
 
 
-@TODO
 def hover_dead():
-    pass
+    return
 
 
-@TODO
 def hover_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_hover():
-    pass
+    return
+

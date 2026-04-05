@@ -7,71 +7,58 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def floater_sight():
-    pass
+    return
 
 
-@TODO
 def floater_idle():
-    pass
+    return
 
 
-@TODO
 def floater_fire_blaster():
-    pass
+    return
 
 
-@TODO
 def floater_stand():
-    pass
+    return
 
 
-@TODO
 def floater_run():
-    pass
+    return
 
 
-@TODO
 def floater_walk():
-    pass
+    return
 
 
-@TODO
 def floater_wham():
-    pass
+    return
 
 
-@TODO
 def floater_zap():
-    pass
+    return
 
 
-@TODO
 def floater_attack():
-    pass
+    return
 
 
-@TODO
 def floater_melee():
-    pass
+    return
 
 
-@TODO
 def floater_pain():
-    pass
+    return
 
 
-@TODO
 def floater_dead():
-    pass
+    return
 
 
-@TODO
 def floater_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_floater():
-    pass
+    return
+

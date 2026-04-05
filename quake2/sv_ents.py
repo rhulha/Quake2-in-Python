@@ -5,31 +5,26 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def SV_EmitPacketEntities(_from, _to, msg):
-    pass
+    return
 
 
-@TODO
 def SV_WritePlayerstateToClient(_from, _to, msg):
-    pass
+    return
 
 
-@TODO
 def SV_WriteFrameToClient(client, msg):
-    pass
+    return
 
 
-@TODO
 def SV_FatPVS(org):
-    pass
+    return
 
 
-@TODO
 def SV_BuildClientFrame(client):
-    pass
+    return
 
 
-@TODO
 def SV_RecordDemoMessage():
-    pass
+    return
+

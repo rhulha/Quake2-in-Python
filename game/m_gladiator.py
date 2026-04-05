@@ -9,49 +9,40 @@ from shared.QConstants import MZ2_GLADIATOR_RAILGUN_1
 LinkEmptyFunctions(globals(), ["AngleVectors", "G_ProjectSource", "_VectorSubtract", "VectorNormalize"])
 
 
-@TODO
 def gladiator_idle():
-    pass
+    return
 
 
-@TODO
 def gladiator_sight():
-    pass
+    return
 
 
-@TODO
 def gladiator_search():
-    pass
+    return
 
 
-@TODO
 def gladiator_cleaver_swing():
-    pass
+    return
 
 
-@TODO
 def gladiator_stand():
-    pass
+    return
 
 
-@TODO
 def gladiator_walk():
-    pass
+    return
 
 
-@TODO
 def gladiator_run():
-    pass
+    return
 
 
-@TODO
 def GaldiatorMelee():
-    pass
+    return
 
 
-@TODO
 def gladiator_melee():
-    pass
+    return
 
 
 def GladiatorGun(_self):
@@ -66,31 +57,27 @@ def GladiatorGun(_self):
     monster_fire_railgun(_self, start, _dir, 50, 100, MZ2_GLADIATOR_RAILGUN_1)
 
 
-@TODO
 def gladiator_attack():
-    pass
+    return
 
 
-@TODO
 def gladiator_pain():
-    pass
+    return
 
 
-@TODO
 def gladiator_dead():
-    pass
+    return
 
 
-@TODO
 def gladiator_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_gladiator():
-    pass
+    return
 
 
 from .q_shared import AngleVectors, _VectorSubtract, VectorNormalize
 from .g_utils import G_ProjectSource
 from .g_monster import monster_fire_railgun
+

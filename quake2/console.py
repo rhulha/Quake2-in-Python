@@ -5,88 +5,75 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def DrawString(x, y, s):
-    pass
+    return
 
 
-@TODO
 def DrawAltString(x, y, s):
-    pass
+    return
 
 
-@TODO
 def Key_ClearTyping():
-    pass
+    return
 
 
-@TODO
 def Con_ToggleConsole_f():
-    pass
+    return
 
 
-@TODO
 def Con_ToggleChat_f():
-    pass
+    return
 
 
-@TODO
 def Con_Clear_f():
-    pass
+    return
 
 
-@TODO
 def Con_Dump_f():
-    pass
+    return
 
 
-@TODO
 def Con_ClearNotify():
-    pass
+    return
 
 
-@TODO
 def Con_MessageMode_f():
-    pass
+    return
 
 
-@TODO
 def Con_MessageMode2_f():
-    pass
+    return
 
 
-@TODO
 def Con_CheckResize():
-    pass
+    return
 
 
-@TODO
 def Con_Init():
-    pass
+    return
 
 
-@TODO
 def Con_Linefeed():
-    pass
+    return
 
 
-@TODO
 def Con_Print(txt):
-    pass
+    return
 
 
-@TODO
 def Con_CenteredPrint(text):
-    pass
+    return
 
 
 def Con_DrawInput():
-    pass
+    return
 
 
 def Con_DrawNotify():
-    pass
+    return
 
 
 def Con_DrawConsole(frac):
-    pass
+    return
+
+

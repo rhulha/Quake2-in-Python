@@ -5,61 +5,50 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CCheckParm(parm):
-    pass
+    return
 
 
-@TODO
 def InitConProc(argc, argv):
-    pass
+    return
 
 
-@TODO
 def DeinitConProc():
-    pass
+    return
 
 
-@TODO
 def RequestProc(arg):
-    pass
+    return
 
 
-@TODO
 def GetMappedBuffer(hfileBuffer):
-    pass
+    return
 
 
-@TODO
 def ReleaseMappedBuffer(pBuffer):
-    pass
+    return
 
 
-@TODO
 def GetScreenBufferLines(piLines):
-    pass
+    return
 
 
-@TODO
 def SetScreenBufferLines(iLines):
-    pass
+    return
 
 
-@TODO
 def ReadText(pszText, iBeginLine, iEndLine):
-    pass
+    return
 
 
-@TODO
 def WriteText(szText):
-    pass
+    return
 
 
-@TODO
 def CharToCode(c):
-    pass
+    return
 
 
-@TODO
 def SetConsoleCXCY(hStdout, cx, cy):
-    pass
+    return
+

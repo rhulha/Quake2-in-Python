@@ -232,39 +232,32 @@ sound_search = 0
 sound_sight = 0
 
 
-@TODO
 def gunner_idlesound():
-    pass
+    return
 
 
-@TODO
 def gunner_sight():
-    pass
+    return
 
 
-@TODO
 def gunner_search():
-    pass
+    return
 
 
-@TODO
 def gunner_fidget():
-    pass
+    return
 
 
-@TODO
 def gunner_stand():
-    pass
+    return
 
 
-@TODO
 def gunner_walk():
-    pass
+    return
 
 
-@TODO
 def gunner_run():
-    pass
+    return
 
 
 gunner_frames_pain3 = [
@@ -314,9 +307,8 @@ gunner_frames_pain1 = [
 gunner_move_pain1 = mmove_t(FRAME_pain101, FRAME_pain118, gunner_frames_pain1, gunner_run)
 
 
-@TODO
 def gunner_runandshoot():
-    pass
+    return
 
 
 def gunner_pain(_self, other, kick, damage):
@@ -342,69 +334,57 @@ def gunner_pain(_self, other, kick, damage):
         _self.monsterinfo.currentmove = gunner_move_pain1
 
 
-@TODO
 def gunner_dead():
-    pass
+    return
 
 
-@TODO
 def gunner_die():
-    pass
+    return
 
 
-@TODO
 def gunner_duck_down():
-    pass
+    return
 
 
-@TODO
 def gunner_duck_hold():
-    pass
+    return
 
 
-@TODO
 def gunner_duck_up():
-    pass
+    return
 
 
-@TODO
 def gunner_dodge():
-    pass
+    return
 
 
-@TODO
 def gunner_opengun():
-    pass
+    return
 
 
-@TODO
 def GunnerFire():
-    pass
+    return
 
 
-@TODO
 def GunnerGrenade():
-    pass
+    return
 
 
-@TODO
 def gunner_attack():
-    pass
+    return
 
 
-@TODO
 def gunner_fire_chain():
-    pass
+    return
 
 
-@TODO
 def gunner_refire_chain():
-    pass
+    return
 
 
-@TODO
 def SP_monster_gunner():
-    pass
+    return
 
 
 from game.g_ai import ai_move
+

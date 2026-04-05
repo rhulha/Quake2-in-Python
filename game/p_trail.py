@@ -7,31 +7,26 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def PlayerTrail_Init():
-    pass
+    return
 
 
-@TODO
 def PlayerTrail_Add():
-    pass
+    return
 
 
-@TODO
 def PlayerTrail_New():
-    pass
+    return
 
 
-@TODO
 def PlayerTrail_PickFirst():
-    pass
+    return
 
 
-@TODO
 def PlayerTrail_PickNext():
-    pass
+    return
 
 
-@TODO
 def PlayerTrail_LastSpot():
-    pass
+    return
+

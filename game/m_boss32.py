@@ -525,54 +525,44 @@ sound_taunt3 = 0
 sound_hit = 0
 
 
-@TODO
 def makron_taunt():
-    pass
+    return
 
 
-@TODO
 def makron_stand():
-    pass
+    return
 
 
-@TODO
 def makron_hit():
-    pass
+    return
 
 
-@TODO
 def makron_popup():
-    pass
+    return
 
 
-@TODO
 def makron_step_left():
-    pass
+    return
 
 
-@TODO
 def makron_step_right():
-    pass
+    return
 
 
-@TODO
 def makron_brainsplorch():
-    pass
+    return
 
 
-@TODO
 def makron_prerailgun():
-    pass
+    return
 
 
-@TODO
 def makron_walk():
-    pass
+    return
 
 
-@TODO
 def makron_run():
-    pass
+    return
 
 
 makron_frames_pain6 = [
@@ -626,14 +616,12 @@ makron_frames_pain4 = [
 makron_move_pain4 = mmove_t(FRAME_pain401, FRAME_pain404, makron_frames_pain4, makron_run)
 
 
-@TODO
 def makronBFG():
-    pass
+    return
 
 
-@TODO
 def MakronSaveloc():
-    pass
+    return
 
 
 def MakronRailgun(_self):
@@ -648,9 +636,8 @@ def MakronRailgun(_self):
     monster_fire_railgun(_self, start, _dir, 50, 100, MZ2_MAKRON_RAILGUN_1)
 
 
-@TODO
 def MakronHyperblaster():
-    pass
+    return
 
 
 def makron_pain(_self, other, kick, damage):
@@ -680,62 +667,52 @@ def makron_pain(_self, other, kick, damage):
                 _self.monsterinfo.currentmove = makron_move_pain6
 
 
-@TODO
 def makron_sight():
-    pass
+    return
 
 
-@TODO
 def makron_attack():
-    pass
+    return
 
 
-@TODO
 def makron_torso_think():
-    pass
+    return
 
 
-@TODO
 def makron_torso():
-    pass
+    return
 
 
-@TODO
 def makron_dead():
-    pass
+    return
 
 
-@TODO
 def makron_die():
-    pass
+    return
 
 
-@TODO
 def Makron_CheckAttack():
-    pass
+    return
 
 
-@TODO
 def MakronPrecache():
-    pass
+    return
 
 
-@TODO
 def SP_monster_makron():
-    pass
+    return
 
 
-@TODO
 def MakronSpawn():
-    pass
+    return
 
 
-@TODO
 def MakronToss():
-    pass
+    return
 
 
 from game.g_ai import ai_move
 from .q_shared import AngleVectors, _VectorSubtract, VectorNormalize
 from .g_utils import G_ProjectSource
 from .g_monster import monster_fire_railgun
+

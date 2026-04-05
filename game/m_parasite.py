@@ -131,44 +131,36 @@ MODEL_SCALE = 1.000000
 
 
 
-@TODO
 def parasite_launch():
-    pass
+    return
 
 
-@TODO
 def parasite_reel_in():
-    pass
+    return
 
 
-@TODO
 def parasite_sight():
-    pass
+    return
 
 
-@TODO
 def parasite_tap():
-    pass
+    return
 
 
-@TODO
 def parasite_scratch():
-    pass
+    return
 
 
-@TODO
 def parasite_search():
-    pass
+    return
 
 
-@TODO
 def parasite_refidget():
-    pass
+    return
 
 
-@TODO
 def parasite_stand():
-    pass
+    return
 
 
 parasite_frames_fidget = [
@@ -200,64 +192,53 @@ def parasite_do_fidget(_self):
     _self.monsterinfo.currentmove = parasite_move_fidget
 
 
-@TODO
 def parasite_idle():
-    pass
+    return
 
 
-@TODO
 def parasite_start_run():
-    pass
+    return
 
 
-@TODO
 def parasite_run():
-    pass
+    return
 
 
-@TODO
 def parasite_start_walk():
-    pass
+    return
 
 
-@TODO
 def parasite_walk():
-    pass
+    return
 
 
-@TODO
 def parasite_pain():
-    pass
+    return
 
 
-@TODO
 def parasite_drain_attack_ok():
-    pass
+    return
 
 
-@TODO
 def parasite_drain_attack():
-    pass
+    return
 
 
-@TODO
 def parasite_attack():
-    pass
+    return
 
 
-@TODO
 def parasite_dead():
-    pass
+    return
 
 
-@TODO
 def parasite_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_parasite():
-    pass
+    return
 
 
 from game.g_ai import ai_stand
+

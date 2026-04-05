@@ -7,101 +7,81 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def jorg_search():
-    pass
+    return
 
 
-@TODO
 def jorg_idle():
-    pass
+    return
 
 
-@TODO
 def jorg_death_hit():
-    pass
+    return
 
 
-@TODO
 def jorg_step_left():
-    pass
+    return
 
 
-@TODO
 def jorg_step_right():
-    pass
+    return
 
 
-@TODO
 def jorg_stand():
-    pass
+    return
 
 
-@TODO
 def jorg_walk():
-    pass
+    return
 
 
-@TODO
 def jorg_run():
-    pass
+    return
 
 
-@TODO
 def jorg_reattack1():
-    pass
+    return
 
 
-@TODO
 def jorg_attack1():
-    pass
+    return
 
 
-@TODO
 def jorg_pain():
-    pass
+    return
 
 
-@TODO
 def jorgBFG():
-    pass
+    return
 
 
-@TODO
 def jorg_firebullet_right():
-    pass
+    return
 
 
-@TODO
 def jorg_firebullet_left():
-    pass
+    return
 
 
-@TODO
 def jorg_firebullet():
-    pass
+    return
 
 
-@TODO
 def jorg_attack():
-    pass
+    return
 
 
-@TODO
 def jorg_dead():
-    pass
+    return
 
 
-@TODO
 def jorg_die():
-    pass
+    return
 
 
-@TODO
 def Jorg_CheckAttack():
-    pass
+    return
 
 
-@TODO
 def SP_monster_jorg():
-    pass
+    return

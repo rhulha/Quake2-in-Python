@@ -7,16 +7,14 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def Use_Boss3():
-    pass
+    return
 
 
-@TODO
 def Think_Boss3Stand():
-    pass
+    return
 
 
-@TODO
 def SP_monster_boss3_stand():
-    pass
+    return
+

@@ -7,111 +7,90 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def medic_FindDeadMonster():
-    pass
+    return
 
 
-@TODO
 def medic_idle():
-    pass
+    return
 
 
-@TODO
 def medic_search():
-    pass
+    return
 
 
-@TODO
 def medic_sight():
-    pass
+    return
 
 
-@TODO
 def medic_stand():
-    pass
+    return
 
 
-@TODO
 def medic_walk():
-    pass
+    return
 
 
-@TODO
 def medic_run():
-    pass
+    return
 
 
-@TODO
 def medic_pain():
-    pass
+    return
 
 
-@TODO
 def medic_fire_blaster():
-    pass
+    return
 
 
-@TODO
 def medic_dead():
-    pass
+    return
 
 
-@TODO
 def medic_die():
-    pass
+    return
 
 
-@TODO
 def medic_duck_down():
-    pass
+    return
 
 
-@TODO
 def medic_duck_hold():
-    pass
+    return
 
 
-@TODO
 def medic_duck_up():
-    pass
+    return
 
 
-@TODO
 def medic_dodge():
-    pass
+    return
 
 
-@TODO
 def medic_continue():
-    pass
+    return
 
 
-@TODO
 def medic_hook_launch():
-    pass
+    return
 
 
-@TODO
 def medic_cable_attack():
-    pass
+    return
 
 
-@TODO
 def medic_hook_retract():
-    pass
+    return
 
 
-@TODO
 def medic_attack():
-    pass
+    return
 
 
-@TODO
 def medic_checkattack():
-    pass
+    return
 
 
-@TODO
 def SP_monster_medic():
-    pass
+    return
+

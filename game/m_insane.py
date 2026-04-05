@@ -7,71 +7,58 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def insane_fist():
-    pass
+    return
 
 
-@TODO
 def insane_shake():
-    pass
+    return
 
 
-@TODO
 def insane_moan():
-    pass
+    return
 
 
-@TODO
 def insane_scream():
-    pass
+    return
 
 
-@TODO
 def insane_cross():
-    pass
+    return
 
 
-@TODO
 def insane_walk():
-    pass
+    return
 
 
-@TODO
 def insane_run():
-    pass
+    return
 
 
-@TODO
 def insane_pain():
-    pass
+    return
 
 
-@TODO
 def insane_onground():
-    pass
+    return
 
 
-@TODO
 def insane_checkup():
-    pass
+    return
 
 
-@TODO
 def insane_stand():
-    pass
+    return
 
 
-@TODO
 def insane_dead():
-    pass
+    return
 
 
-@TODO
 def insane_die():
-    pass
+    return
 
 
-@TODO
 def SP_misc_insane():
-    pass
+    return
+

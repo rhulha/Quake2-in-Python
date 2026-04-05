@@ -5,126 +5,102 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def SV_SetMaster_f():
-    pass
+    return
 
 
-@TODO
 def SV_SetPlayer():
-    pass
+    return
 
 
-@TODO
 def SV_WipeSavegame(savename):
-    pass
+    return
 
 
-@TODO
 def CopyFile(src, dst):
-    pass
+    return
 
 
-@TODO
 def SV_CopySaveGame(src, dst):
-    pass
+    return
 
 
-@TODO
 def SV_WriteLevelFile():
-    pass
+    return
 
 
-@TODO
 def SV_ReadLevelFile():
-    pass
+    return
 
 
-@TODO
 def SV_WriteServerFile(autosave):
-    pass
+    return
 
 
-@TODO
 def SV_ReadServerFile():
-    pass
+    return
 
 
-@TODO
 def SV_DemoMap_f():
-    pass
+    return
 
 
-@TODO
 def SV_GameMap_f():
-    pass
+    return
 
 
-@TODO
 def SV_Map_f():
-    pass
+    return
 
 
-@TODO
 def SV_Loadgame_f():
-    pass
+    return
 
 
-@TODO
 def SV_Savegame_f():
-    pass
+    return
 
 
-@TODO
 def SV_Kick_f():
-    pass
+    return
 
 
-@TODO
 def SV_Status_f():
-    pass
+    return
 
 
-@TODO
 def SV_ConSay_f():
-    pass
+    return
 
 
-@TODO
 def SV_Heartbeat_f():
-    pass
+    return
 
 
-@TODO
 def SV_Serverinfo_f():
-    pass
+    return
 
 
-@TODO
 def SV_DumpUser_f():
-    pass
+    return
 
 
-@TODO
 def SV_ServerRecord_f():
-    pass
+    return
 
 
-@TODO
 def SV_ServerStop_f():
-    pass
+    return
 
 
-@TODO
 def SV_KillServer_f():
-    pass
+    return
 
 
-@TODO
 def SV_ServerCommand_f():
-    pass
+    return
 
 
-@TODO
 def SV_InitOperatorCommands():
-    pass
+    return
+

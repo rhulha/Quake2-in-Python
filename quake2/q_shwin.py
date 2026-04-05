@@ -5,46 +5,38 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def Hunk_Begin(maxsize):
-    pass
+    return
 
 
-@TODO
 def Hunk_End():
-    pass
+    return
 
 
-@TODO
 def Hunk_Free(base):
-    pass
+    return
 
 
-@TODO
 def Sys_Milliseconds():
-    pass
+    return
 
 
-@TODO
 def Sys_Mkdir(path):
-    pass
+    return
 
 
-@TODO
 def CompareAttributes(found, musthave, canthave):
-    pass
+    return
 
 
-@TODO
 def Sys_FindFirst(path, musthave, canthave):
-    pass
+    return
 
 
-@TODO
 def Sys_FindNext(musthave, canthave):
-    pass
+    return
 
 
-@TODO
 def Sys_FindClose():
-    pass
+    return
+

@@ -7,81 +7,66 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def boss2_search():
-    pass
+    return
 
 
-@TODO
 def Boss2Rocket():
-    pass
+    return
 
 
-@TODO
 def boss2_firebullet_right():
-    pass
+    return
 
 
-@TODO
 def boss2_firebullet_left():
-    pass
+    return
 
 
-@TODO
 def Boss2MachineGun():
-    pass
+    return
 
 
-@TODO
 def boss2_stand():
-    pass
+    return
 
 
-@TODO
 def boss2_run():
-    pass
+    return
 
 
-@TODO
 def boss2_walk():
-    pass
+    return
 
 
-@TODO
 def boss2_attack():
-    pass
+    return
 
 
-@TODO
 def boss2_attack_mg():
-    pass
+    return
 
 
-@TODO
 def boss2_reattack_mg():
-    pass
+    return
 
 
-@TODO
 def boss2_pain():
-    pass
+    return
 
 
-@TODO
 def boss2_dead():
-    pass
+    return
 
 
-@TODO
 def boss2_die():
-    pass
+    return
 
 
-@TODO
 def Boss2_CheckAttack():
-    pass
+    return
 
 
-@TODO
 def SP_monster_boss2():
-    pass
+    return
+

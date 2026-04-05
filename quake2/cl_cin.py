@@ -5,51 +5,42 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def SCR_LoadPCX(filename, pic, palette, width, height):
-    pass
+    return
 
 
-@TODO
 def SCR_StopCinematic():
-    pass
+    return
 
 
-@TODO
 def SCR_FinishCinematic():
-    pass
+    return
 
 
-@TODO
 def SmallestNode1(numhnodes):
-    pass
+    return
 
 
-@TODO
 def Huff1TableInit():
-    pass
+    return
 
 
-@TODO
 def Huff1Decompress():
-    pass
+    return
 
 
-@TODO
 def SCR_ReadNextFrame():
-    pass
+    return
 
 
-@TODO
 def SCR_RunCinematic():
-    pass
+    return
 
 
-@TODO
 def SCR_DrawCinematic():
-    pass
+    return
 
 
-@TODO
 def SCR_PlayCinematic():
-    pass
+    return
+

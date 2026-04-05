@@ -7,116 +7,94 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def ChickMoan():
-    pass
+    return
 
 
-@TODO
 def chick_fidget():
-    pass
+    return
 
 
-@TODO
 def chick_stand():
-    pass
+    return
 
 
-@TODO
 def chick_walk():
-    pass
+    return
 
 
-@TODO
 def chick_pain():
-    pass
+    return
 
 
-@TODO
 def chick_dead():
-    pass
+    return
 
 
-@TODO
 def chick_die():
-    pass
+    return
 
 
-@TODO
 def chick_duck_down():
-    pass
+    return
 
 
-@TODO
 def chick_duck_hold():
-    pass
+    return
 
 
-@TODO
 def chick_duck_up():
-    pass
+    return
 
 
-@TODO
 def chick_dodge():
-    pass
+    return
 
 
-@TODO
 def ChickSlash():
-    pass
+    return
 
 
-@TODO
 def ChickRocket():
-    pass
+    return
 
 
-@TODO
 def Chick_PreAttack1():
-    pass
+    return
 
 
-@TODO
 def ChickReload():
-    pass
+    return
 
 
-@TODO
 def chick_rerocket():
-    pass
+    return
 
 
-@TODO
 def chick_attack1():
-    pass
+    return
 
 
-@TODO
 def chick_reslash():
-    pass
+    return
 
 
-@TODO
 def chick_slash():
-    pass
+    return
 
 
-@TODO
 def chick_melee():
-    pass
+    return
 
 
-@TODO
 def chick_attack():
-    pass
+    return
 
 
-@TODO
 def chick_sight():
-    pass
+    return
 
 
-@TODO
 def SP_monster_chick():
-    pass
+    return
+

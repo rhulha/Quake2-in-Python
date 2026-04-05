@@ -5,21 +5,18 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def UpdateChaseCam(ent):
-    pass
+    return
 
 
-@TODO
 def ChaseNext(ent):
-    pass
+    return
 
 
-@TODO
 def ChasePrev(ent):
-    pass
+    return
 
 
-@TODO
 def GetChaseTarget(ent):
-    pass
+    return
+

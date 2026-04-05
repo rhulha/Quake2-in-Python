@@ -7,6 +7,7 @@ import re
 from wrapper_qpy.decorators import va_args, TODO
 from shared.QEnums import ERROR_LVL
 from wrapper_qpy.linker import LinkEmptyFunctions
+from .global_vars import level
 
 LinkEmptyFunctions(globals(), ["Com_Printf", "Com_Error", "Cvar_Get", "Cmd_AddCommand"])
 
@@ -251,20 +252,31 @@ def _spawn_entity(classname, data):
 
 def G_MonsterThink(ent):
     """Think function for monsters"""
-    # TODO: Monster AI
-    pass
+    if isinstance(ent, dict):
+        ent['last_think'] = game.time
+        return
+    ent.timestamp = game.time
+    if hasattr(ent, 'nextthink') and ent.nextthink <= game.time:
+        ent.nextthink = game.time + 0.1
 
 
 def G_ItemThink(ent):
     """Think function for items"""
-    # TODO: Item logic (rotation, pickup, etc)
-    pass
+    if isinstance(ent, dict):
+        ent['last_think'] = game.time
+        return
+    if hasattr(ent, 's') and hasattr(ent.s, 'angles'):
+        ent.s.angles[1] = (ent.s.angles[1] + 2.0) % 360.0
 
 
 def G_PlayerThink(ent):
     """Think function for players"""
-    # TODO: Player think
-    pass
+    try:
+        from .p_client import ClientBeginServerFrame
+        ClientBeginServerFrame(ent)
+    except Exception:
+        if isinstance(ent, dict):
+            ent['last_think'] = game.time
 
 
 # ===== Game Commands =====
@@ -295,22 +307,109 @@ def Say_Team_f():
 
 def ClientEndServerFrames():
     """Called at end of server frame for clients"""
-    pass
+    try:
+        from .p_view import ClientEndServerFrame
+    except Exception:
+        return
+
+    maxclients = int(getattr(game, 'maxclients', 0))
+    if maxclients <= 0:
+        return
+
+    end = min(len(game.entities), maxclients + 1)
+    for i in range(1, end):
+        ent = game.entities[i]
+        if not ent:
+            continue
+        if hasattr(ent, 'inuse') and not ent.inuse:
+            continue
+        client = getattr(ent, 'client', None)
+        if client is None:
+            continue
+        try:
+            ClientEndServerFrame(ent)
+        except Exception:
+            continue
 
 
 def CreateTargetChangeLevel(map):
     """Create change level entity"""
-    pass
+    try:
+        from .g_utils import G_Spawn
+        ent = G_Spawn()
+    except Exception:
+        ent = {'classname': 'target_changelevel'}
+
+    if hasattr(ent, 'classname'):
+        ent.classname = 'target_changelevel'
+    else:
+        ent['classname'] = 'target_changelevel'
+
+    level.nextmap = str(map)
+    if hasattr(ent, 'map'):
+        ent.map = level.nextmap
+    else:
+        ent['map'] = level.nextmap
+    return ent
 
 
 def EndDMLevel():
     """End deathmatch level"""
-    pass
+    target = level.nextmap if level.nextmap else level.mapname
+    change_ent = CreateTargetChangeLevel(target)
+
+    try:
+        from .p_hud import BeginIntermission
+        try:
+            BeginIntermission(change_ent)
+        except TypeError:
+            BeginIntermission()
+    except Exception:
+        level.changemap = target
+        level.exitintermission = 1
+        level.intermissiontime = level.time
 
 
 def CheckDMRules():
     """Check deathmatch rules"""
-    pass
+    if level.intermissiontime:
+        return
+
+    try:
+        from quake2.cvar import Cvar_VariableValue
+        deathmatch = Cvar_VariableValue('deathmatch')
+        timelimit = Cvar_VariableValue('timelimit')
+        fraglimit = Cvar_VariableValue('fraglimit')
+    except Exception:
+        deathmatch = 0
+        timelimit = 0
+        fraglimit = 0
+
+    if not deathmatch:
+        return
+
+    if timelimit and level.time >= timelimit * 60.0:
+        if gi.bprintf:
+            gi.bprintf(2, 'Timelimit hit.\n')
+        EndDMLevel()
+        return
+
+    if fraglimit:
+        maxclients = int(getattr(game, 'maxclients', 0))
+        end = min(len(game.entities), maxclients + 1)
+        for i in range(1, end):
+            ent = game.entities[i]
+            if not ent or not getattr(ent, 'inuse', False):
+                continue
+            cl = getattr(ent, 'client', None)
+            if cl is None:
+                continue
+            score = getattr(getattr(cl, 'resp', None), 'score', 0)
+            if score >= fraglimit:
+                if gi.bprintf:
+                    gi.bprintf(2, 'Fraglimit hit.\n')
+                EndDMLevel()
+                return
 
 
 # ===== Game API Export =====
@@ -375,41 +474,34 @@ def Com_Printf(msg):
         gi.dprintf(msg)
 
 
-@TODO
-def ClientEndServerFrames():
-    pass
-
-
-@TODO
-def CreateTargetChangeLevel(map):
-    pass
-
-
-@TODO
-def EndDMLevel():
-    pass
-
-
-@TODO
-def CheckDMRules():
-    pass
-
-
-@TODO
 def UpdateChaseCam(ent):
-    pass
+    try:
+        from .g_chase import UpdateChaseCam as _UpdateChaseCam
+        return _UpdateChaseCam(ent)
+    except Exception:
+        return None
 
 
-@TODO
 def ChaseNext(ent):
-    pass
+    try:
+        from .g_chase import ChaseNext as _ChaseNext
+        return _ChaseNext(ent)
+    except Exception:
+        return None
 
 
-@TODO
 def ChasePrev(ent):
-    pass
+    try:
+        from .g_chase import ChasePrev as _ChasePrev
+        return _ChasePrev(ent)
+    except Exception:
+        return None
 
 
-@TODO
 def GetChaseTarget(ent):
-    pass
+    try:
+        from .g_chase import GetChaseTarget as _GetChaseTarget
+        return _GetChaseTarget(ent)
+    except Exception:
+        return None
+

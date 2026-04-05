@@ -7,46 +7,38 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def M_CheckBottom():
-    pass
+    return
 
 
-@TODO
 def SV_movestep():
-    pass
+    return
 
 
-@TODO
 def M_ChangeYaw():
-    pass
+    return
 
 
-@TODO
 def SV_StepDirection():
-    pass
+    return
 
 
-@TODO
 def SV_FixCheckBottom():
-    pass
+    return
 
 
-@TODO
 def SV_NewChaseDir():
-    pass
+    return
 
 
-@TODO
 def SV_CloseEnough():
-    pass
+    return
 
 
-@TODO
 def M_MoveToGoal():
-    pass
+    return
 
 
-@TODO
 def M_walkmove():
-    pass
+    return
+

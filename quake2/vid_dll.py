@@ -1,93 +1,80 @@
-from wrapper_qpy.decorators import TODO, va_args2, va_args
-from wrapper_qpy.custom_classes import Mutable
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def WIN_DisableAltTab():
-    pass
+    return
 
 
-@TODO
 def WIN_EnableAltTab():
-    pass
+    return
 
 
-@TODO
-@va_args2(1)
 def VID_Printf(print_level, msg):
-    pass
+    if print_level == 0:
+        print(msg, end='')
 
 
-@TODO
-@va_args2(1)
 def VID_Error(print_level, msg):
-    pass
+    raise RuntimeError(msg)
 
 
-@TODO
 def MapKey(key):
-    pass
+    return key
 
 
-@TODO
 def AppActivate(fActive, minimize):
-    pass
+    return
 
 
-@TODO
 def MainWndProc(hWnd, uMsg, wParam, lParam):
-    pass
+    return 0
 
 
-@TODO
 def VID_Restart_f():
-    pass
+    return
 
 
-@TODO
 def VID_Front_f():
-    pass
+    return
 
 
-@TODO
-def VID_GetModeInfo(width: Mutable, height: Mutable, mode):
-    pass
+def VID_GetModeInfo(width, height, mode):
+    modes = [(320, 240), (400, 300), (512, 384), (640, 480), (800, 600),
+             (1024, 768), (1280, 960), (1600, 1200)]
+    if 0 <= mode < len(modes):
+        if hasattr(width, 'value'):
+            width.value = modes[mode][0]
+        if hasattr(height, 'value'):
+            height.value = modes[mode][1]
+        return True
+    return False
 
 
-@TODO
 def VID_UpdateWindowPosAndSize(x, y):
-    pass
+    return
 
 
-@TODO
 def VID_NewWindow(width, height):
-    pass
+    return
 
 
-@TODO
 def VID_FreeReflib():
-    pass
+    return
 
 
-@TODO
 def VID_LoadRefresh():
-    pass
+    return True
 
 
-@TODO
 def VID_CheckChanges():
-    pass
+    return
 
 
-@TODO
 def VID_Init():
-    pass
+    return
 
 
-@TODO
 def VID_Shutdown():
-    pass
+    return

@@ -5,14 +5,12 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CL_ParseInventory():
-    pass
+    return
 
 
-@TODO
 def Inv_DrawString():
-    pass
+    return
 
 
 def SetStringHighBit(s):
@@ -20,6 +18,6 @@ def SetStringHighBit(s):
         s[i] = chr(ord(s[i]) | 128)
 
 
-@TODO
 def CL_DrawInventory():
-    pass
+    return
+

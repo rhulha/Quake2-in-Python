@@ -7,41 +7,34 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def Svcmd_Test_f():
-    pass
+    return
 
 
-@TODO
 def StringToFilter():
-    pass
+    return
 
 
-@TODO
 def SV_FilterPacket():
-    pass
+    return
 
 
-@TODO
 def SVCmd_AddIP_f():
-    pass
+    return
 
 
-@TODO
 def SVCmd_RemoveIP_f():
-    pass
+    return
 
 
-@TODO
 def SVCmd_ListIP_f():
-    pass
+    return
 
 
-@TODO
 def SVCmd_WriteIP_f():
-    pass
+    return
 
 
-@TODO
 def ServerCommand():
-    pass
+    return
+

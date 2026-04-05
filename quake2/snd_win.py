@@ -5,60 +5,50 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def DSoundError(error):
-    pass
+    return
 
 
-@TODO
 def DS_CreateBuffers():
-    pass
+    return
 
 
-@TODO
 def DS_DestroyBuffers():
-    pass
+    return
 
 
-@TODO
 def FreeSound():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_InitDirect():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_InitWav():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_Init():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_GetDMAPos():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_BeginPainting():
-    pass
+    return
 
 
-@TODO
 def SNDDMA_Submit():
-    pass
+    return
 
 
 def SNDDMA_Shutdown():
     FreeSound()
 
 
-@TODO
 def S_Activate(active):
-    pass
+    return
+

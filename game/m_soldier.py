@@ -7,165 +7,134 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def soldier_idle():
-    pass
+    return
 
 
-@TODO
 def soldier_cock():
-    pass
+    return
 
 
-@TODO
 def soldier_stand():
-    pass
+    return
 
 
-@TODO
 def soldier_walk1_random():
-    pass
+    return
 
 
-@TODO
 def soldier_walk():
-    pass
+    return
 
 
-@TODO
 def soldier_run():
-    pass
+    return
 
 
-@TODO
 def soldier_pain():
-    pass
+    return
 
 
-@TODO
 def soldier_fire():
-    pass
+    return
 
 
 def soldier_fire1(_self):
     soldier_fire(_self, 0)
 
 
-@TODO
 def soldier_attack1_refire1():
-    pass
+    return
 
 
-@TODO
 def soldier_attack1_refire2():
-    pass
+    return
 
 
-@TODO
 def soldier_fire2():
-    pass
+    return
 
 
-@TODO
 def soldier_attack2_refire1():
-    pass
+    return
 
 
-@TODO
 def soldier_attack2_refire2():
-    pass
+    return
 
 
-@TODO
 def soldier_duck_down():
-    pass
+    return
 
 
-@TODO
 def soldier_duck_up():
-    pass
+    return
 
 
-@TODO
 def soldier_fire3():
-    pass
+    return
 
 
-@TODO
 def soldier_attack3_refire():
-    pass
+    return
 
 
-@TODO
 def soldier_fire4():
-    pass
+    return
 
 
-@TODO
 def soldier_fire8():
-    pass
+    return
 
 
-@TODO
 def soldier_attack6_refire():
-    pass
+    return
 
 
-@TODO
 def soldier_attack():
-    pass
+    return
 
 
-@TODO
 def soldier_sight():
-    pass
+    return
 
 
-@TODO
 def soldier_duck_hold():
-    pass
+    return
 
 
-@TODO
 def soldier_dodge():
-    pass
+    return
 
 
-@TODO
 def soldier_fire6():
-    pass
+    return
 
 
-@TODO
 def soldier_fire7():
-    pass
+    return
 
 
-@TODO
 def soldier_dead():
-    pass
+    return
 
 
-@TODO
 def soldier_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_soldier_x():
-    pass
+    return
 
 
-@TODO
 def SP_monster_soldier_light():
-    pass
+    return
 
 
-@TODO
 def SP_monster_soldier():
-    pass
+    return
 
 
-@TODO
 def SP_monster_soldier_ss():
-    pass
+    return
+

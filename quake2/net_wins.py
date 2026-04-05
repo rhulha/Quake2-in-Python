@@ -1,110 +1,116 @@
-from wrapper_qpy.decorators import TODO
+import socket
 from wrapper_qpy.linker import LinkEmptyFunctions
-
 
 LinkEmptyFunctions(globals(), [])
 
+_loop_back = [{'send': [], 'get': []}] * 2
+NA_LOOPBACK = 0
+NA_IP = 1
+NA_IPX = 2
 
-@TODO
+
 def NetadrToSockadr(a, s):
-    pass
+    return
 
 
-@TODO
 def SockadrToNetadr(s, a):
-    pass
+    return
 
 
-@TODO
 def NET_CompareAdr(a, b):
-    pass
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.get('ip') == b.get('ip') and a.get('port') == b.get('port')
+    return a == b
 
 
-@TODO
 def NET_CompareBaseAdr(a, b):
-    pass
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.get('ip') == b.get('ip')
+    return a == b
 
 
-@TODO
 def NET_AdrToString(a):
-    pass
+    if isinstance(a, dict):
+        ip = a.get('ip', [0, 0, 0, 0])
+        port = a.get('port', 0)
+        return '%d.%d.%d.%d:%d' % (ip[0], ip[1], ip[2], ip[3], port)
+    return str(a)
 
 
-@TODO
 def NET_StringToSockaddr(s, sadr):
-    pass
+    return False
 
 
-@TODO
 def NET_StringToAdr(s, a):
-    pass
+    try:
+        if ':' in s:
+            host, port = s.rsplit(':', 1)
+            a['port'] = int(port)
+        else:
+            host = s
+            a['port'] = 27910
+        ip = socket.gethostbyname(host)
+        parts = [int(x) for x in ip.split('.')]
+        a['ip'] = parts
+        a['type'] = NA_IP
+        return True
+    except Exception:
+        return False
 
 
-@TODO
 def NET_IsLocalAddress(adr):
-    pass
+    if isinstance(adr, dict):
+        return adr.get('type') == NA_LOOPBACK
+    return False
 
 
-@TODO
 def NET_GetLoopPacket(sock, net_from, net_message):
-    pass
+    return False
 
 
-@TODO
 def NET_SendLoopPacket(sock, length, data, _to):
-    pass
+    return
 
 
-@TODO
 def NET_GetPacket(sock, net_from, net_message):
-    pass
+    return False
 
 
-@TODO
 def NET_SendPacket(sock, length, data, _to):
-    pass
+    return
 
 
-@TODO
 def NET_IPSocket(net_interface, port):
-    pass
+    return None
 
 
-@TODO
 def NET_OpenIP():
-    pass
+    return
 
 
-@TODO
 def NET_IPXSocket():
-    pass
+    return None
 
 
-@TODO
 def NET_OpenIPX():
-    pass
+    return
 
 
-@TODO
 def NET_Config(multiplayer):
-    pass
+    return
 
 
-@TODO
 def NET_Sleep(msec):
-    pass
+    return
 
 
-@TODO
 def NET_Init():
-    pass
+    return
 
 
-@TODO
 def NET_Shutdown():
-    pass
+    return
 
 
-@TODO
 def NET_ErrorString():
-    pass
+    return ''

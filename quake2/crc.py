@@ -5,21 +5,18 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CRC_Init(crcvalue):
-    pass
+    return
 
 
-@TODO
 def CRC_ProcessByte(crcvalue, data):
-    pass
+    return
 
 
-@TODO
 def CRC_Value(crcvalue):
-    pass
+    return
 
 
-@TODO
 def CRC_Block(start, count):
-    pass
+    return
+

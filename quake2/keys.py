@@ -5,76 +5,62 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CompleteCommand():
-    pass
+    return
 
 
-@TODO
 def Key_Console(key):
-    pass
+    return
 
 
-@TODO
 def Key_Message(key):
-    pass
+    return
 
 
-@TODO
 def Key_StringToKeynum(_str):
-    pass
+    return
 
 
-@TODO
 def Key_KeynumToString(keynum):
-    pass
+    return
 
 
-@TODO
 def Key_SetBinding(keynum, binding):
-    pass
+    return
 
 
-@TODO
 def Key_Unbind_f():
-    pass
+    return
 
 
-@TODO
 def Key_Unbindall_f():
-    pass
+    return
 
 
-@TODO
 def Key_Bind_f():
-    pass
+    return
 
 
-@TODO
 def Key_WriteBindings(f):
-    pass
+    return
 
 
-@TODO
 def Key_Bindlist_f():
-    pass
+    return
 
 
-@TODO
 def Key_Init():
-    pass
+    return
 
 
-@TODO
 def Key_Event(key, down, time):
-    pass
+    return
 
 
-@TODO
 def Key_ClearStates():
-    pass
+    return
 
 
-@TODO
 def Key_GetKey():
-    pass
+    return
+

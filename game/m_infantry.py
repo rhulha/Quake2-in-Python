@@ -7,96 +7,78 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def infantry_stand():
-    pass
+    return
 
 
-@TODO
 def infantry_fidget():
-    pass
+    return
 
 
-@TODO
 def infantry_walk():
-    pass
+    return
 
 
-@TODO
 def infantry_run():
-    pass
+    return
 
 
-@TODO
 def infantry_pain():
-    pass
+    return
 
 
-@TODO
 def InfantryMachineGun():
-    pass
+    return
 
 
-@TODO
 def infantry_sight():
-    pass
+    return
 
 
-@TODO
 def infantry_dead():
-    pass
+    return
 
 
-@TODO
 def infantry_die():
-    pass
+    return
 
 
-@TODO
 def infantry_duck_down():
-    pass
+    return
 
 
-@TODO
 def infantry_duck_hold():
-    pass
+    return
 
 
-@TODO
 def infantry_duck_up():
-    pass
+    return
 
 
-@TODO
 def infantry_dodge():
-    pass
+    return
 
 
-@TODO
 def infantry_cock_gun():
-    pass
+    return
 
 
-@TODO
 def infantry_fire():
-    pass
+    return
 
 
-@TODO
 def infantry_swing():
-    pass
+    return
 
 
-@TODO
 def infantry_smack():
-    pass
+    return
 
 
-@TODO
 def infantry_attack():
-    pass
+    return
 
 
-@TODO
 def SP_monster_infantry():
-    pass
+    return
+

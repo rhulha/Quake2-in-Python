@@ -171,19 +171,16 @@ MODEL_SCALE = 1.000000
 nextmove = 0
 
 
-@TODO
 def flyer_sight():
-    pass
+    return
 
 
-@TODO
 def flyer_idle():
-    pass
+    return
 
 
-@TODO
 def flyer_pop_blades():
-    pass
+    return
 
 
 flyer_frames_run = [mframe_t(ai_run, 0, None) for _ in range(0, 45)]
@@ -191,44 +188,36 @@ flyer_frames_run = [mframe_t(ai_run, 0, None) for _ in range(0, 45)]
 flyer_move_run = mmove_t(FRAME_stand01, FRAME_stand45, flyer_frames_run, None)
 
 
-@TODO
 def flyer_run():
-    pass
+    return
 
 
-@TODO
 def flyer_walk():
-    pass
+    return
 
 
-@TODO
 def flyer_stand():
-    pass
+    return
 
 
-@TODO
 def flyer_stop():
-    pass
+    return
 
 
-@TODO
 def flyer_start():
-    pass
+    return
 
 
-@TODO
 def flyer_fire():
-    pass
+    return
 
 
-@TODO
 def flyer_fireleft():
-    pass
+    return
 
 
-@TODO
 def flyer_fireright():
-    pass
+    return
 
 
 flyer_frames_attack2 = [
@@ -254,19 +243,16 @@ flyer_frames_attack2 = [
 flyer_move_attack2 = mmove_t(FRAME_attak201, FRAME_attak217, flyer_frames_attack2, flyer_run)
 
 
-@TODO
 def flyer_slash_left():
-    pass
+    return
 
 
-@TODO
 def flyer_frames_start_melee():
-    pass
+    return
 
 
-@TODO
 def flyer_loop_melee():
-    pass
+    return
 
 
 flyer_frames_start_melee = [
@@ -281,14 +267,12 @@ flyer_frames_start_melee = [
 flyer_move_start_melee = mmove_t(FRAME_attak101, FRAME_attak106, flyer_frames_start_melee, flyer_loop_melee)
 
 
-@TODO
 def flyer_attack():
-    pass
+    return
 
 
-@TODO
 def flyer_setstart():
-    pass
+    return
 
 
 def flyer_nextmove(_self):
@@ -300,29 +284,25 @@ def flyer_nextmove(_self):
         _self.monsterinfo.currentmove = flyer_move_run
 
 
-@TODO
 def flyer_melee():
-    pass
+    return
 
 
-@TODO
 def flyer_check_melee():
-    pass
+    return
 
 
-@TODO
 def flyer_pain():
-    pass
+    return
 
 
-@TODO
 def flyer_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_flyer():
-    pass
+    return
 
 
 from game.g_ai import ai_charge, ai_run
+

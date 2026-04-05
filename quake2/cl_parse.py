@@ -5,66 +5,54 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def CL_DownloadFileName(dest, destlen, fn):
-    pass
+    return
 
 
-@TODO
 def CL_CheckOrDownloadFile(filename):
-    pass
+    return
 
 
-@TODO
 def CL_Download_f():
-    pass
+    return
 
 
-@TODO
 def CL_RegisterSounds():
-    pass
+    return
 
 
-@TODO
 def CL_ParseDownload():
-    pass
+    return
 
 
-@TODO
 def CL_ParseServerData():
-    pass
+    return
 
 
-@TODO
 def CL_ParseBaseline():
-    pass
+    return
 
 
-@TODO
 def CL_LoadClientinfo(ci, s):
-    pass
+    return
 
 
-@TODO
 def CL_ParseClientinfo(player):
-    pass
+    return
 
 
-@TODO
 def CL_ParseConfigString():
-    pass
+    return
 
 
-@TODO
 def CL_ParseStartSoundPacket():
-    pass
+    return
 
 
-@TODO
 def SHOWNET(s):
-    pass
+    return
 
 
-@TODO
 def CL_ParseServerMessage():
-    pass
+    return
+

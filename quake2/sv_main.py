@@ -25,6 +25,32 @@ class Server:
 
 server = Server()
 
+CS_FREE = 0
+CS_ZOMBIE = 1
+CS_CONNECTED = 2
+CS_SPAWNED = 3
+
+
+def _get(obj, name, default=None):
+    if isinstance(obj, dict):
+        return obj.get(name, default)
+    return getattr(obj, name, default)
+
+
+def _set(obj, name, value):
+    if isinstance(obj, dict):
+        obj[name] = value
+    else:
+        setattr(obj, name, value)
+
+
+def _iter_clients():
+    clients = _get(server, 'clients', None)
+    if clients is None:
+        clients = []
+        _set(server, 'clients', clients)
+    return clients
+
 # ===== Initialization =====
 
 def SV_Init():
@@ -199,88 +225,206 @@ def SV_SpawnEntity():
 
 def SV_LinkEntity(ent):
     """Link entity into world (for collision)"""
-    # TODO: Add entity to spatial structure for collision queries
-    pass
+    linked = _get(server, 'linked_entities', None)
+    if linked is None:
+        linked = []
+        _set(server, 'linked_entities', linked)
+    if ent not in linked:
+        linked.append(ent)
 
 
 def SV_UnlinkEntity(ent):
     """Unlink entity from world"""
-    # TODO: Remove entity from spatial structure
-    pass
+    linked = _get(server, 'linked_entities', [])
+    if ent in linked:
+        linked.remove(ent)
 
 
 def SV_TouchTriggers(ent):
     """Check for trigger touches"""
-    # TODO: Implement trigger detection
-    pass
+    linked = _get(server, 'linked_entities', [])
+    touch = _get(ent, 'touch', None)
+    for other in linked:
+        if other is ent:
+            continue
+        if _get(other, 'classname', '').startswith('trigger_') and touch:
+            try:
+                touch(ent, other, None, None)
+            except Exception:
+                continue
 
 
 # ===== Client Management =====
 
 def SV_DropClient(drop):
     """Drop a client connection"""
-    pass
+    if drop is None:
+        return
+
+    try:
+        from .common import MSG_WriteByte
+        msg = _get(_get(drop, 'netchan', {}), 'message', None)
+        if msg is not None:
+            MSG_WriteByte(msg, 7)  # svc_disconnect
+    except Exception:
+        pass
+
+    if int(_get(drop, 'state', CS_FREE)) == CS_SPAWNED:
+        try:
+            from game.p_client import ClientDisconnect
+            edict = _get(drop, 'edict', None)
+            if edict is not None:
+                ClientDisconnect(edict)
+        except Exception:
+            pass
+
+    download = _get(drop, 'download', None)
+    if download:
+        try:
+            download.close()
+        except Exception:
+            pass
+        _set(drop, 'download', None)
+
+    _set(drop, 'state', CS_ZOMBIE)
+    _set(drop, 'name', '')
 
 
 def SV_SendClientMessages():
     """Send state updates to connected clients"""
-    # TODO: Send entity state updates
-    pass
+    try:
+        from .sv_send import SV_SendClientMessages as _send
+        _send()
+    except Exception:
+        pass
 
 
 def SV_ExecuteUserCommand(s):
     """Execute a user command"""
-    # TODO: Parse and execute user commands (move, look, etc)
-    pass
+    try:
+        from .sv_user import SV_ExecuteUserCommand as _exec
+        _exec(s)
+    except Exception:
+        pass
 
 
 # ===== Network Commands (Server-side) =====
 
 def SVC_Status():
     """Handle status query"""
-    pass
+    try:
+        from .common import Com_Printf
+        Com_Printf('SVC_Status\n%s\n', SV_StatusString())
+    except Exception:
+        return
 
 
 def SVC_Ack():
     """Handle acknowledgment"""
-    pass
+    try:
+        from .common import Com_Printf
+        Com_Printf('Ping acknowledge\n')
+    except Exception:
+        return
 
 
 def SVC_Info():
     """Handle info query"""
-    pass
+    info = {
+        'hostname': _get(server, 'hostname', 'Quake2Python'),
+        'map': _get(server, 'mapname', ''),
+        'clients': len([c for c in _iter_clients() if int(_get(c, 'state', 0)) >= CS_CONNECTED]),
+        'maxclients': int(_get(server, 'maxclients', 1)),
+    }
+    _set(server, 'last_info_reply', info)
 
 
 def SVC_Ping():
     """Handle ping"""
-    pass
+    _set(server, 'last_ping_reply', 'ack')
 
 
 def SVC_GetChallenge():
     """Handle challenge request"""
-    pass
+    challenges = _get(server, 'challenges', None)
+    if challenges is None:
+        challenges = []
+        _set(server, 'challenges', challenges)
+    challenge = len(challenges) + 1
+    challenges.append(challenge)
+    _set(server, 'last_challenge', challenge)
 
 
 def SVC_DirectConnect():
     """Handle direct connection"""
-    pass
+    clients = _iter_clients()
+    for cl in clients:
+        if int(_get(cl, 'state', CS_FREE)) in (CS_FREE, CS_ZOMBIE):
+            _set(cl, 'state', CS_CONNECTED)
+            _set(cl, 'lastmessage', int(_get(server, 'realtime', 0)))
+            return
+
+    clients.append({
+        'state': CS_CONNECTED,
+        'lastmessage': int(_get(server, 'realtime', 0)),
+        'name': 'player',
+        'messagelevel': 0,
+        'rate': 25000,
+        'message_size': [0] * 32,
+        'framenum': 0,
+    })
 
 
 def SV_StatusString():
     """Get server status string"""
-    return "Server status"
+    lines = []
+    lines.append(f'map:{_get(server, "mapname", "")} state:{_get(server, "state", 0)}')
+    for cl in _iter_clients():
+        state = int(_get(cl, 'state', CS_FREE))
+        if state in (CS_CONNECTED, CS_SPAWNED):
+            score = _get(_get(_get(cl, 'edict', None), 'client', None), 'resp', None)
+            frags = _get(score, 'score', 0)
+            ping = int(_get(cl, 'ping', 0))
+            name = _get(cl, 'name', '')
+            lines.append(f'{frags} {ping} "{name}"')
+    return '\n'.join(lines)
 
 
 def Rcon_Validate():
     """Validate remote console command"""
-    pass
+    password = str(_get(server, 'rcon_password', ''))
+    provided = str(_get(server, 'rcon_provided', ''))
+    return bool(password) and password == provided
 
 
 # ===== Utilities =====
 
 def SV_CheckTimeouts():
     """Check for client timeouts"""
-    pass
+    realtime = int(_get(server, 'realtime', 0))
+    timeout = int(_get(server, 'timeout_ms', 120000))
+    zombie_timeout = int(_get(server, 'zombie_ms', 2000))
+    droppoint = realtime - timeout
+    zombiepoint = realtime - zombie_timeout
+
+    for cl in _iter_clients():
+        lastmessage = int(_get(cl, 'lastmessage', realtime))
+        if lastmessage > realtime:
+            lastmessage = realtime
+            _set(cl, 'lastmessage', lastmessage)
+
+        state = int(_get(cl, 'state', CS_FREE))
+        if state == CS_ZOMBIE and lastmessage < zombiepoint:
+            _set(cl, 'state', CS_FREE)
+            continue
+        if state in (CS_CONNECTED, CS_SPAWNED) and lastmessage < droppoint:
+            try:
+                from .sv_send import SV_BroadcastPrintf
+                SV_BroadcastPrintf(2, f'{_get(cl, "name", "client")} timed out\n')
+            except Exception:
+                pass
+            SV_DropClient(cl)
+            _set(cl, 'state', CS_FREE)
 
 
 def SV_CalculatePing(client):
@@ -288,26 +432,40 @@ def SV_CalculatePing(client):
     return 0
 
 
-@TODO
 def SV_WriteFrame(msg):
-    pass
+    if isinstance(msg, dict):
+        msg['server_time'] = server.time
+        msg['entities'] = [e for e in server.edicts if e]
 
 
-@TODO
 def SV_Multicast(origin, to):
-    pass
+    try:
+        from .sv_send import SV_Multicast as _multicast
+        _multicast(origin, to)
+    except Exception:
+        pass
 
 
-@TODO
 def SV_StartSound(origin, ent, channel, soundindex, volume, attenuation):
-    pass
+    try:
+        from .sv_send import SV_StartSound as _startsound
+        _startsound(origin, ent, channel, soundindex, volume, attenuation, 0.0)
+    except Exception:
+        pass
 
 
-@TODO
 def SV_BroadcastCommand(fmt):
-    pass
+    try:
+        from .sv_send import SV_BroadcastCommand as _broadcast
+        _broadcast(fmt)
+    except Exception:
+        pass
 
 
-@TODO
 def SV_BroadcastPrintf(fmt):
-    pass
+    try:
+        from .sv_send import SV_BroadcastPrintf as _broadcast
+        _broadcast(2, fmt)
+    except Exception:
+        pass
+

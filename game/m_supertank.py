@@ -7,76 +7,62 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def TreadSound():
-    pass
+    return
 
 
-@TODO
 def supertank_search():
-    pass
+    return
 
 
-@TODO
 def supertank_stand():
-    pass
+    return
 
 
-@TODO
 def supertank_forward():
-    pass
+    return
 
 
-@TODO
 def supertank_walk():
-    pass
+    return
 
 
-@TODO
 def supertank_run():
-    pass
+    return
 
 
-@TODO
 def supertank_reattack1():
-    pass
+    return
 
 
-@TODO
 def supertank_pain():
-    pass
+    return
 
 
-@TODO
 def supertankRocket():
-    pass
+    return
 
 
-@TODO
 def supertankMachineGun():
-    pass
+    return
 
 
-@TODO
 def supertank_attack():
-    pass
+    return
 
 
-@TODO
 def supertank_dead():
-    pass
+    return
 
 
-@TODO
 def BossExplode():
-    pass
+    return
 
 
-@TODO
 def supertank_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_supertank():
-    pass
+    return
+

@@ -91,14 +91,12 @@ def FS_Gamedir():
     return fs_gamedir
 
 
-@TODO
 def FS_ExecAutoexec():
-    pass
+    return
 
 
-@TODO
 def FS_SetGameDir(_dir):
-    pass
+    return
 
 
 def FS_LoadFile(path, return_buffer=True):
@@ -357,17 +355,15 @@ def FS_FCloseFile(f):
     pass
 
 
-@TODO
 def COM_SkipPath(pathname):
-    pass
+    return
 
 
-@TODO
 def COM_StripExtension(in_str):
-    pass
+    return
 
 
-@TODO
 def COM_FileBase(in_str):
-    pass
+    return
+
 

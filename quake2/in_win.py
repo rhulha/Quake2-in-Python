@@ -1,102 +1,79 @@
-from wrapper_qpy.decorators import TODO
 from wrapper_qpy.linker import LinkEmptyFunctions
-from .sys_win import ActiveApp
-
 
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def IN_MLookDown():
-    pass
+    return
 
 
-@TODO
 def IN_MLookUp():
-    pass
+    return
 
 
-@TODO
 def IN_ActivateMouse():
-    pass
+    return
 
 
-@TODO
 def IN_DeactivateMouse():
-    pass
+    return
 
 
-@TODO
 def IN_StartupMouse():
-    pass
+    return
 
 
-@TODO
 def IN_MouseEvent():
-    pass
+    return
 
 
-@TODO
 def IN_MouseMove(cmd):
-    pass
+    return
 
 
-@TODO
 def IN_Init():
-    pass
+    return
 
 
-@TODO
 def IN_Shutdown():
-    pass
+    return
 
 
-@TODO
 def IN_Activate():
-    pass
+    return
 
 
-@TODO
 def IN_Frame():
-    pass
+    return
 
 
 def IN_Move(cmd):
-    IN_MouseMove(cmd)
-    if ActiveApp != 0:
-        IN_JoyMove(cmd)
+    return
 
 
-@TODO
 def IN_ClearStates():
-    pass
+    return
 
 
-@TODO
 def IN_StartupJoystick():
-    pass
+    return
 
 
-@TODO
 def RawValuePointer(axis):
-    pass
+    return 0
 
 
-@TODO
 def Joy_AdvancedUpdate_f():
-    pass
+    return
 
 
-@TODO
 def IN_Commands():
-    pass
+    return
 
 
-@TODO
 def IN_ReadJoystick():
-    pass
+    return False
 
 
-@TODO
 def IN_JoyMove(cmd):
-    pass
+    return

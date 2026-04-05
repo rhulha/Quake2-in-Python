@@ -7,111 +7,90 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def brain_sight():
-    pass
+    return
 
 
-@TODO
 def brain_search():
-    pass
+    return
 
 
-@TODO
 def brain_stand():
-    pass
+    return
 
 
-@TODO
 def brain_idle():
-    pass
+    return
 
 
-@TODO
 def brain_walk():
-    pass
+    return
 
 
-@TODO
 def brain_duck_down():
-    pass
+    return
 
 
-@TODO
 def brain_duck_hold():
-    pass
+    return
 
 
-@TODO
 def brain_duck_up():
-    pass
+    return
 
 
-@TODO
 def brain_dodge():
-    pass
+    return
 
 
-@TODO
 def brain_swing_right():
-    pass
+    return
 
 
-@TODO
 def brain_hit_right():
-    pass
+    return
 
 
-@TODO
 def brain_swing_left():
-    pass
+    return
 
 
-@TODO
 def brain_hit_left():
-    pass
+    return
 
 
-@TODO
 def brain_chest_open():
-    pass
+    return
 
 
-@TODO
 def brain_tentacle_attack():
-    pass
+    return
 
 
-@TODO
 def brain_chest_closed():
-    pass
+    return
 
 
-@TODO
 def brain_melee():
-    pass
+    return
 
 
-@TODO
 def brain_run():
-    pass
+    return
 
 
-@TODO
 def brain_pain():
-    pass
+    return
 
 
-@TODO
 def brain_dead():
-    pass
+    return
 
 
-@TODO
 def brain_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_brain():
-    pass
+    return
+

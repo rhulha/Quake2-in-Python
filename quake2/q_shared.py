@@ -323,29 +323,23 @@ def COM_FilePath(_in, out: Mutable):
 
 # ############# BYTE ORDER FUNCTIONS ###############
 
-@TODO
 def ShortSwap(l):
-    pass
+    return
 
-@TODO
 def ShortNoSwap(l):
-    pass
+    return
 
-@TODO
 def LongSwap(l):
-    pass
+    return
 
-@TODO
 def LongNoSwap(l):
-    pass
+    return
 
-@TODO
 def FloatSwap(l):
-    pass
+    return
 
-@TODO
 def FloatNoSwap(l):
-    pass
+    return
 
 @TODO
 def Swap_Init():
@@ -520,3 +514,4 @@ def Info_SetValueForKey(_s: Mutable, key, value):
 
 
 from .common import Com_Printf
+

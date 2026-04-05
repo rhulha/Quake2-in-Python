@@ -11,44 +11,45 @@ LinkEmptyFunctions(globals(), [])
 
 
 def CDAudio_Play2(track, looping):
-    pass
+    return
 
 
 def CDAudio_Play(track, looping):
-    pass
+    return
 
 
 def CDAudio_Stop():
-    pass
+    return
 
 
 def CDAudio_Pause():
-    pass
+    return
 
 
 def CDAudio_Resume():
-    pass
+    return
 
 
 def CDAudio_Stop():
-    pass
+    return
 
 
 def CDAudio_MessageHandler(hWnd, uMsg, wParam, lParam):
-    pass
+    return
 
 
 def CDAudio_Update():
-    pass
+    return
 
 
 def CDAudio_Init():
-    pass
+    return
 
 
 def CDAudio_Shutdown():
-    pass
+    return
 
 
 def CDAudio_Activate(actuve):
-    pass
+    return
+

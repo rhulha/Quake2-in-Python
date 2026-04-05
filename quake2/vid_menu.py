@@ -5,46 +5,38 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def DriverCallback(unused):
-    pass
+    return
 
 
-@TODO
 def ScreenSizeCallback(s):
-    pass
+    return
 
 
-@TODO
 def BrightnessCallback(s):
-    pass
+    return
 
 
-@TODO
 def ResetDefaults(unused):
-    pass
+    return
 
 
-@TODO
 def ApplyChanges(unused):
-    pass
+    return
 
 
-@TODO
 def CancelChanges(unused):
-    pass
+    return
 
 
-@TODO
 def VID_MenuInit():
-    pass
+    return
 
 
-@TODO
 def VID_MenuDraw():
-    pass
+    return
 
 
-@TODO
 def VID_MenuKey(key):
-    pass
+    return
+

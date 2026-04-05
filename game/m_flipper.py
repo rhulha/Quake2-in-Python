@@ -7,66 +7,54 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def flipper_stand():
-    pass
+    return
 
 
-@TODO
 def flipper_run_loop():
-    pass
+    return
 
 
-@TODO
 def flipper_run():
-    pass
+    return
 
 
-@TODO
 def flipper_walk():
-    pass
+    return
 
 
-@TODO
 def flipper_start_run():
-    pass
+    return
 
 
-@TODO
 def flipper_bite():
-    pass
+    return
 
 
-@TODO
 def flipper_preattack():
-    pass
+    return
 
 
-@TODO
 def flipper_melee():
-    pass
+    return
 
 
-@TODO
 def flipper_pain():
-    pass
+    return
 
 
-@TODO
 def flipper_dead():
-    pass
+    return
 
 
-@TODO
 def flipper_sight():
-    pass
+    return
 
 
-@TODO
 def flipper_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_flipper():
-    pass
+    return
+

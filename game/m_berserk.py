@@ -7,76 +7,62 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def berserk_sight():
-    pass
+    return
 
 
-@TODO
 def berserk_search():
-    pass
+    return
 
 
-@TODO
 def berserk_stand():
-    pass
+    return
 
 
-@TODO
 def berserk_fidget():
-    pass
+    return
 
 
-@TODO
 def berserk_walk():
-    pass
+    return
 
 
-@TODO
 def berserk_run():
-    pass
+    return
 
 
-@TODO
 def berserk_attack_spike():
-    pass
+    return
 
 
-@TODO
 def berserk_swing():
-    pass
+    return
 
 
-@TODO
 def berserk_attack_club():
-    pass
+    return
 
 
-@TODO
 def berserk_strike():
-    pass
+    return
 
 
-@TODO
 def berserk_melee():
-    pass
+    return
 
 
-@TODO
 def berserk_pain():
-    pass
+    return
 
 
-@TODO
 def berserk_dead():
-    pass
+    return
 
 
-@TODO
 def berserk_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_berserk():
-    pass
+    return
+

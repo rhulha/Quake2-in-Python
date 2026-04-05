@@ -5,35 +5,28 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def MD4Init(context):
-    pass
+    return
 
 
-@TODO
 def MD4Update(context, _input, inputLen):
-    pass
+    return
 
-@TODO
 def MD4Final(digest, context):
-    pass
+    return
 
 
-@TODO
 def MD4Transform(state, block):
-    pass
+    return
 
 
-@TODO
 def Encode(output, _input, _len):
-    pass
+    return
 
 
-@TODO
 def Decode(output, _input, _len):
-    pass
+    return
 
 
-@TODO
 def Com_BlockChecksum(buffer, length):
-    pass
+    return

@@ -7,126 +7,102 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def mutant_step():
-    pass
+    return
 
 
-@TODO
 def mutant_sight():
-    pass
+    return
 
 
-@TODO
 def mutant_search():
-    pass
+    return
 
 
-@TODO
 def mutant_swing():
-    pass
+    return
 
 
-@TODO
 def mutant_stand():
-    pass
+    return
 
 
-@TODO
 def mutant_idle_loop():
-    pass
+    return
 
 
-@TODO
 def mutant_idle():
-    pass
+    return
 
 
-@TODO
 def mutant_walk_loop():
-    pass
+    return
 
 
-@TODO
 def mutant_walk():
-    pass
+    return
 
 
-@TODO
 def mutant_run():
-    pass
+    return
 
 
-@TODO
 def mutant_hit_left():
-    pass
+    return
 
 
-@TODO
 def mutant_hit_right():
-    pass
+    return
 
 
-@TODO
 def mutant_check_refire():
-    pass
+    return
 
 
-@TODO
 def mutant_melee():
-    pass
+    return
 
 
-@TODO
 def mutant_jump_touch():
-    pass
+    return
 
 
-@TODO
 def mutant_jump_takeoff():
-    pass
+    return
 
 
-@TODO
 def mutant_check_landing():
-    pass
+    return
 
 
-@TODO
 def mutant_jump():
-    pass
+    return
 
 
-@TODO
 def mutant_check_melee():
-    pass
+    return
 
 
-@TODO
 def mutant_check_jump():
-    pass
+    return
 
 
-@TODO
 def mutant_checkattack():
-    pass
+    return
 
 
-@TODO
 def mutant_pain():
-    pass
+    return
 
 
-@TODO
 def mutant_dead():
-    pass
+    return
 
 
-@TODO
 def mutant_die():
-    pass
+    return
 
 
-@TODO
 def SP_monster_mutant():
-    pass
+    return
+

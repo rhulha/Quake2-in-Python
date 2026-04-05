@@ -21,39 +21,32 @@ actor_names = [
 ]
 MAX_ACTOR_NAMES = len(actor_names)
 
-@TODO
 def actor_stand():
-    pass
+    return
 
 
-@TODO
 def actor_walk():
-    pass
+    return
 
 
-@TODO
 def actor_run():
-    pass
+    return
 
 
-@TODO
 def actor_pain():
-    pass
+    return
 
 
-@TODO
 def actorMachineGun():
-    pass
+    return
 
 
-@TODO
 def actor_dead():
-    pass
+    return
 
 
-@TODO
 def actor_die():
-    pass
+    return
 
 
 def actor_fire(_self):
@@ -64,26 +57,22 @@ def actor_fire(_self):
         _self.monsterinfo.aiflags &= MONSTER_AI_FLAGS.AI_HOLD_FRAME
 
 
-@TODO
 def actor_attack():
-    pass
+    return
 
 
-@TODO
 def actor_use():
-    pass
+    return
 
 
-@TODO
 def SP_misc_actor():
-    pass
+    return
 
 
-@TODO
 def target_actor_touch():
-    pass
+    return
 
 
-@TODO
 def SP_target_actor():
-    pass
+    return
+

@@ -7,61 +7,50 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def AnglesNormalize():
-    pass
+    return
 
 
-@TODO
 def SnapToEights():
-    pass
+    return
 
 
-@TODO
 def turret_blocked():
-    pass
+    return
 
 
-@TODO
 def turret_breach_fire():
-    pass
+    return
 
 
-@TODO
 def turret_breach_think():
-    pass
+    return
 
 
-@TODO
 def turret_breach_finish_init():
-    pass
+    return
 
 
-@TODO
 def SP_turret_breach():
-    pass
+    return
 
 
-@TODO
 def SP_turret_base():
-    pass
+    return
 
 
-@TODO
 def turret_driver_die():
-    pass
+    return
 
 
-@TODO
 def turret_driver_think():
-    pass
+    return
 
 
-@TODO
 def turret_driver_link():
-    pass
+    return
 
 
-@TODO
 def SP_turret_driver():
-    pass
+    return
+

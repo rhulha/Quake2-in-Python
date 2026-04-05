@@ -5,41 +5,34 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def ResampleSfx():
-    pass
+    return
 
 
-@TODO
 def S_LoadSound(s):
-    pass
+    return
 
 
-@TODO
 def GetLittleShort():
-    pass
+    return
 
 
-@TODO
 def GetLittleLong():
-    pass
+    return
 
 
-@TODO
 def FindNextChunk(name):
-    pass
+    return
 
 
-@TODO
 def FindChunk(name):
-    pass
+    return
 
 
-@TODO
 def DumpChunks():
-    pass
+    return
 
 
-@TODO
 def GetWavinfo(name, wav, wavlength):
-    pass
+    return
+

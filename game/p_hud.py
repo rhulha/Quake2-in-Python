@@ -7,51 +7,42 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def MoveClientToIntermission():
-    pass
+    return
 
 
-@TODO
 def BeginIntermission():
-    pass
+    return
 
 
-@TODO
 def DeathmatchScoreboardMessage():
-    pass
+    return
 
 
-@TODO
 def DeathmatchScoreboard():
-    pass
+    return
 
 
-@TODO
 def Cmd_Score_f():
-    pass
+    return
 
 
-@TODO
 def HelpComputer():
-    pass
+    return
 
 
-@TODO
 def Cmd_Help_f():
-    pass
+    return
 
 
-@TODO
 def G_SetStats():
-    pass
+    return
 
 
-@TODO
 def G_CheckChaseStats():
-    pass
+    return
 
 
-@TODO
 def G_SetSpectatorStats():
-    pass
+    return
+

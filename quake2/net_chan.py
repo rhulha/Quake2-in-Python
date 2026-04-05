@@ -6,41 +6,34 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 LinkEmptyFunctions(globals(), [])
 
 
-@TODO
 def Netchan_Init():
-    pass
+    return
 
 
-@TODO
 def Netchan_OutOfBand():
-    pass
+    return
 
 
-@TODO
 def Netchan_OutOfBandPrint():
-    pass
+    return
 
 
-@TODO
 def Netchan_Setup():
-    pass
+    return
 
 
-@TODO
 def Netchan_CanReliable():
-    pass
+    return
 
 
-@TODO
 def Netchan_NeedReliable():
-    pass
+    return
 
 
-@TODO
 def Netchan_Transmit():
-    pass
+    return
 
 
-@TODO
 def Netchan_Process():
-    pass
+    return
+
