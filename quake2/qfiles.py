@@ -227,8 +227,11 @@ class Edge:
 def load_bsp(path: str) -> list:
     """Load BSP file and return lumps"""
     try:
-        with open(path, 'rb') as f:
-            data = f.read()
+        # Use Quake 2 filesystem to load the file
+        from .files import FS_LoadFile
+        data, length = FS_LoadFile(path)
+        if data is None:
+            return None
     except:
         return None
 

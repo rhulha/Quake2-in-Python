@@ -170,14 +170,14 @@ def SV_Map_f():
         try:
             from game.g_main import G_Init
             G_Init()
-        except:
-            pass
+        except Exception as e:
+            Com_Printf(f"Note: Game logic not available: {e}\n")
 
         # Spawn entities from map
         try:
             G_SpawnEntities(mapname)
-        except:
-            pass
+        except Exception as e:
+            Com_Printf(f"Note: Entity spawning not available: {e}\n")
 
         server.state = 2  # Running
         server.mapname = mapname
