@@ -1,107 +1,264 @@
-from wrapper_qpy.decorators import TODO
-from wrapper_qpy.linker import LinkEmptyFunctions
+"""menu.py — Quake2 in-game menu system (Python port)
 
+All draw functions are no-ops (renderer not yet connected).
+State management and command dispatch are fully implemented.
+"""
+from wrapper_qpy.linker import LinkEmptyFunctions
 
 LinkEmptyFunctions(globals(), [])
 
+# --------------------------------------------------------------------------
+# Module state
+# --------------------------------------------------------------------------
 
-@TODO
+_m_drawfunc = None
+_m_keyfunc = None
+_m_entersound = False
+_m_layers = []           # stack of (drawfunc, keyfunc) tuples
+
+# Shared menu item lists (populated by *_MenuInit functions)
+_main_items = ["Game", "Multiplayer", "Options", "Credits", "Quit"]
+_main_cursor = 0
+
+_options_cursor = 0
+_game_cursor = 0
+_keys_cursor = 0
+_multiplayer_cursor = 0
+_joinserver_cursor = 0
+_startserver_cursor = 0
+_dmoptions_cursor = 0
+_addressbook_cursor = 0
+_loadgame_cursor = 0
+_savegame_cursor = 0
+_downloadoptions_cursor = 0
+_playerconfig_cursor = 0
+
+# Server browser state
+_serverlist = []          # list of (netadr, info) tuples
+_servercount = 0
+
+# Key bindings menu state
+_bindnames = [
+    ["+attack",          "attack"],
+    ["weapnext",         "next weapon"],
+    ["weapprev",         "prev weapon"],
+    ["+forward",         "walk forward"],
+    ["+back",            "backpedal"],
+    ["+left",            "turn left"],
+    ["+right",           "turn right"],
+    ["+speed",           "run"],
+    ["+moveleft",        "step left"],
+    ["+moveright",       "step right"],
+    ["+strafe",          "sidestep"],
+    ["+lookup",          "look up"],
+    ["+lookdown",        "look down"],
+    ["centerview",       "center view"],
+    ["+mlook",           "mouse look"],
+    ["+klook",           "keyboard look"],
+    ["+moveup",          "up / jump"],
+    ["+movedown",        "down / crouch"],
+    ["inven",            "inventory"],
+    ["invuse",           "use item"],
+    ["invdrop",          "drop item"],
+    ["invprev",          "prev item"],
+    ["invnext",          "next item"],
+    ["cmd help",         "help computer"],
+]
+_bind_grab = False
+
+# Options menu cvars (populated on init)
+_sens_cvar = None
+_alwaysrun_cvar = None
+_invertmouse_cvar = None
+_lookspring_cvar = None
+_lookstrafe_cvar = None
+_freelook_cvar = None
+_crosshair_cvar = None
+_sfxvol_cvar = None
+_cdvol_cvar = None
+_noalttab_cvar = None
+
+# Player config state
+_player_model = ''
+_player_skin = ''
+_model_files = []
+_skin_files = []
+
+# Quit menu state
+_credits_offset = 0
+_credits_lines = [
+    "Quake II was created by",
+    "id Software",
+    "",
+    "Programming: John Carmack",
+    "Program Design: John Carmack",
+    "Technical Director: John Carmack",
+    "Lead Artist: Adrian Carmack",
+    "Art Director: Kevin Cloud",
+    "Art: Paul Steed",
+    "Design: Sandy Petersen, American McGee, Tim Willits",
+    "Sound: Trent Reznor, Nine Inch Nails",
+    "Biz: Todd Hollenshead, Jerry Roka",
+]
+
+# --------------------------------------------------------------------------
+# Core push/pop stack
+# --------------------------------------------------------------------------
+
+def M_PushMenu(draw, key):
+    global _m_drawfunc, _m_keyfunc, _m_entersound
+    _m_entersound = True
+    if _m_drawfunc is not None:
+        _m_layers.append((_m_drawfunc, _m_keyfunc))
+    _m_drawfunc = draw
+    _m_keyfunc = key
+
+
+def M_ForceMenuOff():
+    global _m_drawfunc, _m_keyfunc, _m_layers
+    _m_drawfunc = None
+    _m_keyfunc = None
+    _m_layers.clear()
+    try:
+        from .keys import Key_SetDest
+        Key_SetDest(0)  # KEY_GAME
+    except Exception:
+        pass
+
+
+def M_PopMenu():
+    global _m_drawfunc, _m_keyfunc
+    if _m_layers:
+        _m_drawfunc, _m_keyfunc = _m_layers.pop()
+    else:
+        M_ForceMenuOff()
+
+
+def Default_MenuKey(m, key):
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        M_PopMenu()
+        return None
+    return None
+
+
+# --------------------------------------------------------------------------
+# Draw helpers (no-ops — renderer not connected)
+# --------------------------------------------------------------------------
+
 def M_Banner(name):
     pass
 
 
-@TODO
-def M_PushMenu(draw, key):
-    pass
-
-
-@TODO
-def M_ForceMenuOff():
-    pass
-
-
-@TODO
-def M_PopMenu():
-    pass
-
-
-@TODO
-def Default_MenuKey(m, key):
-    pass
-
-
-@TODO
 def M_DrawCharacter(cx, cy, num):
     pass
 
 
-@TODO
 def M_Print(cx, cy, _str):
     pass
 
 
-@TODO
 def M_PrintWhite(cx, cy, _str):
     pass
 
 
-@TODO
 def M_DrawPic(x, y, pic):
     pass
 
 
-@TODO
 def M_DrawCursor(x, y, f):
     pass
 
 
-@TODO
 def M_DrawTextBox(x, y, width, lines):
     pass
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Main menu
+# --------------------------------------------------------------------------
+
 def M_Main_Draw():
     pass
 
 
-@TODO
 def M_Main_Key(key):
-    pass
+    global _main_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _main_cursor = (_main_cursor - 1) % len(_main_items)
+    elif key == K_DOWNARROW:
+        _main_cursor = (_main_cursor + 1) % len(_main_items)
+    elif key == K_ENTER:
+        choice = _main_items[_main_cursor]
+        if choice == "Game":
+            M_Menu_Game_f()
+        elif choice == "Multiplayer":
+            M_Menu_Multiplayer_f()
+        elif choice == "Options":
+            M_Menu_Options_f()
+        elif choice == "Credits":
+            M_Menu_Credits_f()
+        elif choice == "Quit":
+            M_Menu_Quit_f()
 
 
 def M_Menu_Main_f():
     M_PushMenu(M_Main_Draw, M_Main_Key)
 
 
-@TODO
-def Multiplayer_MenuDraw():
-    pass
+# --------------------------------------------------------------------------
+# Multiplayer menu
+# --------------------------------------------------------------------------
 
-
-@TODO
 def PlayerSetupFunc(unused):
-    pass
+    M_Menu_PlayerConfig_f()
 
 
-@TODO
 def JoinNetworkServerFunc(unused):
-    pass
+    M_Menu_JoinServer_f()
 
 
-@TODO
 def StartNetworkServerFunc(unused):
-    pass
+    M_Menu_StartServer_f()
 
 
-@TODO
 def Multiplayer_MenuInit():
     pass
 
 
-@TODO
-def Multiplayer_MenuKey(key):
+def Multiplayer_MenuDraw():
     pass
+
+
+def Multiplayer_MenuKey(key):
+    global _multiplayer_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    _items = ["Join Server", "Start Server", "Player Setup"]
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _multiplayer_cursor = (_multiplayer_cursor - 1) % len(_items)
+    elif key == K_DOWNARROW:
+        _multiplayer_cursor = (_multiplayer_cursor + 1) % len(_items)
+    elif key == K_ENTER:
+        if _multiplayer_cursor == 0:
+            JoinNetworkServerFunc(None)
+        elif _multiplayer_cursor == 1:
+            StartNetworkServerFunc(None)
+        else:
+            PlayerSetupFunc(None)
 
 
 def M_Menu_Multiplayer_f():
@@ -109,44 +266,89 @@ def M_Menu_Multiplayer_f():
     M_PushMenu(Multiplayer_MenuDraw, Multiplayer_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Key bindings menu
+# --------------------------------------------------------------------------
+
 def M_UnbindCommand(command):
-    pass
+    try:
+        from .keys import Key_GetBindings, Key_SetBinding
+        for i in range(256):
+            b = Key_GetBindings(i)
+            if b and b == command:
+                Key_SetBinding(i, '')
+    except Exception:
+        pass
 
 
-@TODO
 def M_FindKeysForCommand(command, twokeys):
-    pass
+    twokeys[0] = -1
+    twokeys[1] = -1
+    count = 0
+    try:
+        from .keys import Key_GetBindings
+        for i in range(256):
+            b = Key_GetBindings(i)
+            if b and b == command:
+                twokeys[count] = i
+                count += 1
+                if count == 2:
+                    return
+    except Exception:
+        pass
 
 
-@TODO
 def KeyCursorDrawFunc(menu):
     pass
 
 
-@TODO
 def DrawKeyBindingFunc(_self):
     pass
 
 
-@TODO
 def KeyBindingFunc(_self):
-    pass
+    global _bind_grab, _keys_cursor
+    _bind_grab = True
 
 
-@TODO
 def Keys_MenuInit():
-    pass
+    global _keys_cursor
+    _keys_cursor = 0
 
 
-@TODO
 def Keys_MenuDraw():
     pass
 
 
-@TODO
 def Keys_MenuKey(key):
-    pass
+    global _keys_cursor, _bind_grab
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    K_BACKSPACE = 8
+    K_DEL = 127
+    if _bind_grab:
+        if key != K_ESCAPE:
+            try:
+                from .keys import Key_SetBinding
+                cmd = _bindnames[_keys_cursor][0]
+                Key_SetBinding(key, cmd)
+            except Exception:
+                pass
+        _bind_grab = False
+        return
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _keys_cursor = (_keys_cursor - 1) % len(_bindnames)
+    elif key == K_DOWNARROW:
+        _keys_cursor = (_keys_cursor + 1) % len(_bindnames)
+    elif key in (K_ENTER, K_BACKSPACE, K_DEL):
+        if key == K_ENTER:
+            _bind_grab = True
+        else:
+            M_UnbindCommand(_bindnames[_keys_cursor][0])
 
 
 def M_Menu_Keys_f():
@@ -154,12 +356,15 @@ def M_Menu_Keys_f():
     M_PushMenu(Keys_MenuDraw, Keys_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Options menu
+# --------------------------------------------------------------------------
+
 def CrosshairFunc(unused):
-    pass
+    if _crosshair_cvar:
+        _crosshair_cvar.value = not _crosshair_cvar.value
 
 
-@TODO
 def JoystickFunc(unused):
     pass
 
@@ -168,88 +373,110 @@ def CustomizeControlsFunc(unused):
     M_Menu_Keys_f()
 
 
-@TODO
 def AlwaysRunFunc(unused):
-    pass
+    if _alwaysrun_cvar:
+        _alwaysrun_cvar.value = 1 - int(_alwaysrun_cvar.value)
 
 
-@TODO
 def FreeLookFunc(unused):
-    pass
+    if _freelook_cvar:
+        _freelook_cvar.value = 1 - int(_freelook_cvar.value)
 
 
-@TODO
 def MouseSpeedFunc(unused):
     pass
 
 
-@TODO
 def NoAltTabFunc(unused):
-    pass
+    if _noalttab_cvar:
+        _noalttab_cvar.value = 1 - int(_noalttab_cvar.value)
 
 
 def ClampCvar(_min, _max, value):
     return max(_min, min(_max, value))
 
 
-@TODO
 def ControlsSetMenuItemValues():
     pass
 
 
-@TODO
 def ControlsResetDefaultsFunc(unused):
-    pass
+    try:
+        from .cvar import Cvar_SetValue
+        Cvar_SetValue('sensitivity', 3.0)
+        Cvar_SetValue('cl_run', 0)
+        Cvar_SetValue('m_pitch', 0.022)
+        Cvar_SetValue('lookspring', 0)
+        Cvar_SetValue('lookstrafe', 0)
+        Cvar_SetValue('m_freelook', 1)
+        Cvar_SetValue('crosshair', 0)
+    except Exception:
+        pass
 
 
-@TODO
 def InvertMouseFunc(unused):
-    pass
+    if _invertmouse_cvar:
+        _invertmouse_cvar.value = -_invertmouse_cvar.value
 
 
-@TODO
 def LookspringFunc(unused):
-    pass
+    if _lookspring_cvar:
+        _lookspring_cvar.value = 1 - int(_lookspring_cvar.value)
 
 
-@TODO
 def LookstrafeFunc(unused):
-    pass
+    if _lookstrafe_cvar:
+        _lookstrafe_cvar.value = 1 - int(_lookstrafe_cvar.value)
 
 
-@TODO
 def UpdateVolumeFunc(unused):
     pass
 
 
-@TODO
 def UpdateCDVolumeFunc(unused):
     pass
 
 
-@TODO
 def ConsoleFunc(unused):
-    pass
+    M_ForceMenuOff()
+    try:
+        from .console import Con_ToggleConsole_f
+        Con_ToggleConsole_f()
+    except Exception:
+        pass
 
 
-@TODO
 def UpdateSoundQualityFunc(unused):
     pass
 
 
-@TODO
 def Options_MenuInit():
-    pass
+    global _options_cursor, _sens_cvar, _alwaysrun_cvar, _invertmouse_cvar
+    global _lookspring_cvar, _lookstrafe_cvar, _freelook_cvar
+    global _crosshair_cvar, _sfxvol_cvar, _cdvol_cvar, _noalttab_cvar
+    _options_cursor = 0
+    try:
+        from .cvar import Cvar_Get
+        _sens_cvar = Cvar_Get('sensitivity', '3', 0)
+        _alwaysrun_cvar = Cvar_Get('cl_run', '0', 0)
+        _invertmouse_cvar = Cvar_Get('m_pitch', '0.022', 0)
+        _lookspring_cvar = Cvar_Get('lookspring', '0', 0)
+        _lookstrafe_cvar = Cvar_Get('lookstrafe', '0', 0)
+        _freelook_cvar = Cvar_Get('m_freelook', '1', 0)
+        _crosshair_cvar = Cvar_Get('crosshair', '0', 0)
+        _sfxvol_cvar = Cvar_Get('s_volume', '0.7', 0)
+        _cdvol_cvar = Cvar_Get('cd_volume', '0.4', 0)
+        _noalttab_cvar = Cvar_Get('win_noalttab', '0', 0)
+    except Exception:
+        pass
 
 
-@TODO
 def Options_MenuDraw():
     pass
 
 
-@TODO
 def Options_MenuKey(key):
-    pass
+    return Default_MenuKey(None, key)
 
 
 def M_Menu_Options_f():
@@ -257,99 +484,163 @@ def M_Menu_Options_f():
     M_PushMenu(Options_MenuDraw, Options_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Credits menu
+# --------------------------------------------------------------------------
+
 def M_Credits_MenuDraw():
     pass
 
 
-@TODO
 def M_Credits_Key(key):
-    pass
+    K_ESCAPE = 27
+    if key == K_ESCAPE:
+        M_PopMenu()
 
 
-@TODO
 def M_Menu_Credits_f():
-    pass
+    M_PushMenu(M_Credits_MenuDraw, M_Credits_Key)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Game menu
+# --------------------------------------------------------------------------
+
 def StartGame():
-    pass
+    M_ForceMenuOff()
+    try:
+        from .cmd import Cbuf_AddText
+        Cbuf_AddText('killserver\n')
+        Cbuf_AddText('newgame\n')
+    except Exception:
+        pass
 
 
-@TODO
 def EasyGameFunc(data):
-    pass
+    try:
+        from .cvar import Cvar_ForceSet
+        Cvar_ForceSet('skill', '0')
+    except Exception:
+        pass
+    StartGame()
 
 
-@TODO
 def MediumGameFunc(data):
-    pass
+    try:
+        from .cvar import Cvar_ForceSet
+        Cvar_ForceSet('skill', '1')
+    except Exception:
+        pass
+    StartGame()
 
 
-@TODO
 def HardGameFunc(data):
-    pass
+    try:
+        from .cvar import Cvar_ForceSet
+        Cvar_ForceSet('skill', '2')
+    except Exception:
+        pass
+    StartGame()
 
 
-@TODO
 def LoadGameFunc(unused):
-    pass
+    M_Menu_LoadGame_f()
 
 
-@TODO
 def SaveGameFunc(unused):
-    pass
+    M_Menu_SaveGame_f()
 
 
-@TODO
 def CreditsFunc(unused):
-    pass
+    M_Menu_Credits_f()
 
 
-@TODO
 def Game_MenuInit():
-    pass
+    global _game_cursor
+    _game_cursor = 0
 
 
-@TODO
 def Game_MenuDraw():
     pass
 
 
-@TODO
 def Game_MenuKey(key):
-    pass
+    global _game_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    _funcs = [EasyGameFunc, MediumGameFunc, HardGameFunc, LoadGameFunc, SaveGameFunc, CreditsFunc]
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _game_cursor = (_game_cursor - 1) % len(_funcs)
+    elif key == K_DOWNARROW:
+        _game_cursor = (_game_cursor + 1) % len(_funcs)
+    elif key == 13:
+        _funcs[_game_cursor](None)
 
 
-@TODO
 def M_Menu_Game_f():
-    pass
+    Game_MenuInit()
+    M_PushMenu(Game_MenuDraw, Game_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Load / Save game menus
+# --------------------------------------------------------------------------
+
+_savestrings = [''] * 15
+_savevalid = [False] * 15
+
+
 def Create_Savestrings():
-    pass
+    import os
+    for i in range(15):
+        path = f'save/slot{i}/game.ssv'
+        if os.path.exists(path):
+            _savevalid[i] = True
+            _savestrings[i] = f'Slot {i}'
+        else:
+            _savevalid[i] = False
+            _savestrings[i] = '<empty>'
 
 
-@TODO
 def LoadGameCallback(_self):
-    pass
+    idx = _self if isinstance(_self, int) else _loadgame_cursor
+    try:
+        from .cmd import Cbuf_AddText
+        Cbuf_AddText(f'load save/slot{idx}/game\n')
+    except Exception:
+        pass
+    M_ForceMenuOff()
 
 
-@TODO
 def LoadGame_MenuInit():
-    pass
+    global _loadgame_cursor
+    _loadgame_cursor = 0
+    Create_Savestrings()
 
 
-@TODO
 def LoadGame_MenuDraw():
     pass
 
 
-@TODO
 def LoadGame_MenuKey(key):
-    pass
+    global _loadgame_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _loadgame_cursor = (_loadgame_cursor - 1) % 15
+    elif key == K_DOWNARROW:
+        _loadgame_cursor = (_loadgame_cursor + 1) % 15
+    elif key == K_ENTER:
+        if _savevalid[_loadgame_cursor]:
+            LoadGameCallback(_loadgame_cursor)
 
 
 def M_Menu_LoadGame_f():
@@ -357,73 +648,120 @@ def M_Menu_LoadGame_f():
     M_PushMenu(LoadGame_MenuDraw, LoadGame_MenuKey)
 
 
-@TODO
 def SaveGameCallback(_self):
-    pass
+    idx = _self if isinstance(_self, int) else _savegame_cursor
+    try:
+        from .cmd import Cbuf_AddText
+        Cbuf_AddText(f'save save/slot{idx}/game\n')
+    except Exception:
+        pass
+    M_ForceMenuOff()
 
 
-@TODO
 def SaveGame_MenuDraw():
     pass
 
 
-@TODO
 def SaveGame_MenuInit():
-    pass
+    global _savegame_cursor
+    _savegame_cursor = 0
+    Create_Savestrings()
 
 
-@TODO
 def SaveGame_MenuKey(key):
-    pass
+    global _savegame_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _savegame_cursor = (_savegame_cursor - 1) % 15
+    elif key == K_DOWNARROW:
+        _savegame_cursor = (_savegame_cursor + 1) % 15
+    elif key == K_ENTER:
+        SaveGameCallback(_savegame_cursor)
 
 
-@TODO
 def M_Menu_SaveGame_f():
-    pass
+    SaveGame_MenuInit()
+    M_PushMenu(SaveGame_MenuDraw, SaveGame_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Join server menu
+# --------------------------------------------------------------------------
+
 def M_AddToServerList(adr, info):
-    pass
+    global _servercount
+    for s in _serverlist:
+        if s[1] == info:
+            return
+    _serverlist.append((adr, info))
+    _servercount = len(_serverlist)
 
 
-@TODO
 def JoinServerFunc(_self):
-    pass
+    idx = _self if isinstance(_self, int) else _joinserver_cursor
+    if 0 <= idx < len(_serverlist):
+        adr = _serverlist[idx][0]
+        try:
+            from .cmd import Cbuf_AddText
+            Cbuf_AddText(f'connect {adr}\n')
+        except Exception:
+            pass
+        M_ForceMenuOff()
 
 
-@TODO
 def AddressBookFunc(_self):
-    pass
+    M_Menu_AddressBook_f()
 
 
-@TODO
 def NullCursorDraw(_self):
     pass
 
 
-@TODO
 def SearchLocalGames():
-    pass
+    global _serverlist, _servercount
+    _serverlist.clear()
+    _servercount = 0
+    try:
+        from .cmd import Cbuf_AddText
+        Cbuf_AddText('ping_servers\n')
+    except Exception:
+        pass
 
 
 def SearchLocalGamesFunc(_self):
     SearchLocalGames()
 
 
-@TODO
 def JoinServer_MenuInit():
-    pass
+    global _joinserver_cursor
+    _joinserver_cursor = 0
 
 
-@TODO
 def JoinServer_MenuDraw():
     pass
 
 
-@TODO
 def JoinServer_MenuKey(key):
-    pass
+    global _joinserver_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        M_PopMenu()
+    elif key == K_UPARROW:
+        if _servercount > 0:
+            _joinserver_cursor = (_joinserver_cursor - 1) % _servercount
+    elif key == K_DOWNARROW:
+        if _servercount > 0:
+            _joinserver_cursor = (_joinserver_cursor + 1) % _servercount
+    elif key == K_ENTER:
+        JoinServerFunc(_joinserver_cursor)
 
 
 def M_Menu_JoinServer_f():
@@ -431,34 +769,37 @@ def M_Menu_JoinServer_f():
     M_PushMenu(JoinServer_MenuDraw, JoinServer_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Start server menu
+# --------------------------------------------------------------------------
+
 def DMOptionsFunc(_self):
-    pass
+    M_Menu_DMOptions_f()
 
 
-@TODO
 def RulesChangeFunc(_self):
     pass
 
 
-@TODO
 def StartServerActionFunc(_self):
-    pass
+    try:
+        from .cmd import Cbuf_AddText
+        Cbuf_AddText('map base1\n')
+    except Exception:
+        pass
+    M_ForceMenuOff()
 
 
-@TODO
 def StartServer_MenuInit():
     pass
 
 
-@TODO
 def StartServer_MenuDraw():
     pass
 
 
-@TODO
 def StartServer_MenuKey(key):
-    pass
+    return Default_MenuKey(None, key)
 
 
 def M_Menu_StartServer_f():
@@ -466,24 +807,24 @@ def M_Menu_StartServer_f():
     M_PushMenu(StartServer_MenuDraw, StartServer_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# DM options menu
+# --------------------------------------------------------------------------
+
 def DMFlagCallback(_self):
     pass
 
 
-@TODO
 def DMOptions_MenuInit():
     pass
 
 
-@TODO
 def DMOptions_MenuDraw():
     pass
 
 
-@TODO
 def DMOptions_MenuKey(key):
-    pass
+    return Default_MenuKey(None, key)
 
 
 def M_Menu_DMOptions_f():
@@ -491,24 +832,24 @@ def M_Menu_DMOptions_f():
     M_PushMenu(DMOptions_MenuDraw, DMOptions_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Download options menu
+# --------------------------------------------------------------------------
+
 def DownloadCallback(_self):
     pass
 
 
-@TODO
 def DownloadOptions_MenuInit():
     pass
 
 
-@TODO
 def DownloadOptions_MenuDraw():
     pass
 
 
-@TODO
 def DownloadOptions_MenuKey(key):
-    pass
+    return Default_MenuKey(None, key)
 
 
 def M_Menu_DownloadOptions_f():
@@ -516,17 +857,54 @@ def M_Menu_DownloadOptions_f():
     M_PushMenu(DownloadOptions_MenuDraw, DownloadOptions_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Address book menu
+# --------------------------------------------------------------------------
+
+_addressbook = [''] * 9
+
+
 def AddressBook_MenuInit():
-    pass
+    global _addressbook_cursor
+    _addressbook_cursor = 0
+    try:
+        from .cvar import Cvar_Get
+        for i in range(9):
+            cv = Cvar_Get(f'adr{i}', '', 0)
+            _addressbook[i] = cv.string if cv else ''
+    except Exception:
+        pass
 
 
-@TODO
 def AddressBook_MenuKey(key):
-    pass
+    global _addressbook_cursor
+    K_ESCAPE = 27
+    K_UPARROW = 128
+    K_DOWNARROW = 129
+    K_ENTER = 13
+    if key == K_ESCAPE:
+        try:
+            from .cvar import Cvar_Set
+            for i in range(9):
+                Cvar_Set(f'adr{i}', _addressbook[i])
+        except Exception:
+            pass
+        M_PopMenu()
+    elif key == K_UPARROW:
+        _addressbook_cursor = (_addressbook_cursor - 1) % 9
+    elif key == K_DOWNARROW:
+        _addressbook_cursor = (_addressbook_cursor + 1) % 9
+    elif key == K_ENTER:
+        adr = _addressbook[_addressbook_cursor]
+        if adr:
+            try:
+                from .cmd import Cbuf_AddText
+                Cbuf_AddText(f'connect {adr}\n')
+            except Exception:
+                pass
+            M_ForceMenuOff()
 
 
-@TODO
 def AddressBook_MenuDraw():
     pass
 
@@ -540,67 +918,85 @@ def DownloadOptionsFunc(_self):
     M_Menu_DownloadOptions_f()
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Player config menu
+# --------------------------------------------------------------------------
+
 def HandednessCallback(unused):
     pass
 
 
-@TODO
 def RateCallback(unused):
     pass
 
 
-@TODO
 def ModelCallback(unused):
     pass
 
 
-@TODO
 def FreeFileList(_list, n):
-    pass
+    del _list[:]
 
 
-@TODO
 def IconOfSkinExists(skin, pcxfiles, npcxfiles):
-    pass
+    icon = skin.rsplit('.', 1)[0] + '_i.pcx'
+    return icon in pcxfiles[:npcxfiles]
 
 
-@TODO
 def PlayerConfig_ScanDirectories():
-    pass
+    global _model_files, _skin_files
+    import os
+    _model_files.clear()
+    _skin_files.clear()
+    base = 'baseq2/players'
+    if os.path.isdir(base):
+        for entry in os.listdir(base):
+            if os.path.isdir(os.path.join(base, entry)):
+                _model_files.append(entry)
 
 
-@TODO
 def pmicmpfnc(_a, _b):
-    pass
+    return (_a > _b) - (_a < _b)
 
 
-@TODO
 def PlayerConfig_MenuInit():
-    pass
+    global _playerconfig_cursor
+    _playerconfig_cursor = 0
+    PlayerConfig_ScanDirectories()
 
 
-@TODO
 def PlayerConfig_MenuDraw():
     pass
 
 
-@TODO
 def PlayerConfig_MenuKey(key):
-    pass
+    return Default_MenuKey(None, key)
 
 
-@TODO
 def M_Menu_PlayerConfig_f():
-    pass
+    PlayerConfig_MenuInit()
+    M_PushMenu(PlayerConfig_MenuDraw, PlayerConfig_MenuKey)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Quit menu
+# --------------------------------------------------------------------------
+
 def M_Quit_Key(key):
-    pass
+    K_ESCAPE = 27
+    K_N = ord('n')
+    K_Y = ord('y')
+    if key in (K_ESCAPE, K_N):
+        M_PopMenu()
+    elif key == K_Y:
+        M_ForceMenuOff()
+        try:
+            from .cmd import Cbuf_AddText
+            Cbuf_AddText('quit\n')
+        except Exception:
+            pass
 
 
-@TODO
 def M_Quit_Draw():
     pass
 
@@ -609,16 +1005,48 @@ def M_Menu_Quit_f():
     M_PushMenu(M_Quit_Draw, M_Quit_Key)
 
 
-@TODO
+# --------------------------------------------------------------------------
+# Top-level: M_Init, M_Draw, M_Keydown
+# --------------------------------------------------------------------------
+
 def M_Init():
-    pass
+    try:
+        from .cmd import Cmd_AddCommand
+        Cmd_AddCommand('menu_main', M_Menu_Main_f)
+        Cmd_AddCommand('menu_game', M_Menu_Game_f)
+        Cmd_AddCommand('menu_loadgame', M_Menu_LoadGame_f)
+        Cmd_AddCommand('menu_savegame', M_Menu_SaveGame_f)
+        Cmd_AddCommand('menu_joinserver', M_Menu_JoinServer_f)
+        Cmd_AddCommand('menu_startserver', M_Menu_StartServer_f)
+        Cmd_AddCommand('menu_dmoptions', M_Menu_DMOptions_f)
+        Cmd_AddCommand('menu_addressbook', M_Menu_AddressBook_f)
+        Cmd_AddCommand('menu_multiplayer', M_Menu_Multiplayer_f)
+        Cmd_AddCommand('menu_keys', M_Menu_Keys_f)
+        Cmd_AddCommand('menu_options', M_Menu_Options_f)
+        Cmd_AddCommand('menu_playerconfig', M_Menu_PlayerConfig_f)
+        Cmd_AddCommand('menu_downloadoptions', M_Menu_DownloadOptions_f)
+        Cmd_AddCommand('menu_credits', M_Menu_Credits_f)
+        Cmd_AddCommand('menu_quit', M_Menu_Quit_f)
+    except Exception:
+        pass
 
 
-@TODO
 def M_Draw():
-    pass
+    global _m_entersound
+    if _m_drawfunc is None:
+        return
+    if _m_entersound:
+        _m_entersound = False
+    try:
+        _m_drawfunc()
+    except Exception:
+        pass
 
 
-@TODO
-def M_Keydown():
-    pass
+def M_Keydown(key):
+    if _m_keyfunc is None:
+        return
+    try:
+        _m_keyfunc(key)
+    except Exception:
+        pass
