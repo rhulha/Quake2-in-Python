@@ -137,9 +137,6 @@ def GLimp_Shutdown():
 
 def GLimp_BeginFrame(camera_separation=0):
     """Prepare for frame rendering"""
-    # Clear buffers
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
     # Set up modelview matrix
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
@@ -192,3 +189,4 @@ def GLimp_GetProcAddress(name):
     return None
 
 
+from quake2.common import Com_Printf, Com_Error

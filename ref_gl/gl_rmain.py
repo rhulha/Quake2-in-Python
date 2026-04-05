@@ -23,7 +23,10 @@ def R_Init():
     """Initialize OpenGL renderer"""
     try:
         from . import glw_imp
-        from ..quake2.common import Com_Printf, Cvar_Get
+        try:
+            from quake2.common import Com_Printf, Cvar_Get
+        except ImportError:
+            from ..quake2.common import Com_Printf, Cvar_Get
 
         Com_Printf("R_Init()\n")
 

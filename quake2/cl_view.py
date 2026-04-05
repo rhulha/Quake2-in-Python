@@ -102,6 +102,14 @@ def V_TestLights():
 def CL_PrepRefresh():
     """Prepare for rendering"""
     _ViewState.prepared = True
+
+    # Initialize renderer if not already done
+    try:
+        from ref_gl import gl_rmain
+        gl_rmain.R_Init()
+    except Exception as e:
+        print(f"CL_PrepRefresh R_Init error: {e}")
+
     V_ClearScene()
 
 

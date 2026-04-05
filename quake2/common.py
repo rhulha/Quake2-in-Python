@@ -945,3 +945,4 @@ from .files import FS_Gamedir
 from .cl_main import CL_Drop, CL_Shutdown
 from .sv_main import SV_Shutdown
 from .cvar import Cvar_Get
+from .cmd import Cmd_AddCommand
