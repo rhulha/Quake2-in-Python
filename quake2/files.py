@@ -313,18 +313,55 @@ def FS_InitFilesystem():
     """Initialize filesystem with search paths"""
     global fs_gamedir, fs_searchpaths, fs_base_searchpaths
 
-    # For now, use current directory as base
-    base_dir = os.getcwd()
+    baseq2_path = None
 
-    # Add baseq2 directory
-    baseq2_path = os.path.join(base_dir, "baseq2")
+    # Try to load from config first
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+        import config as cfg
+        cfg.create_default_config()
+        configured_dir = cfg.get_quake2_directory()
+        if configured_dir and os.path.isdir(configured_dir):
+            baseq2_path = configured_dir
+            print(f"Using Quake 2 directory from config: {baseq2_path}")
+    except Exception as e:
+        print(f"Could not load config: {e}")
+
+    # If config didn't provide a valid path, search for it
+    if not baseq2_path or not os.path.isdir(baseq2_path):
+        search_paths = [
+            # Steam Quake 2 installation (default location)
+            r"D:\SteamLibrary\steamapps\common\Quake 2\baseq2",
+            # Alternative Steam locations
+            r"D:\Steam\steamapps\common\Quake 2\baseq2",
+            r"C:\Program Files\Steam\steamapps\common\Quake 2\baseq2",
+            r"C:\Program Files (x86)\Steam\steamapps\common\Quake 2\baseq2",
+            # Current directory
+            os.path.join(os.getcwd(), "baseq2"),
+            # Relative to this file
+            os.path.join(os.path.dirname(__file__), "..", "baseq2"),
+        ]
+
+        # Try to find baseq2 directory
+        for path in search_paths:
+            if os.path.isdir(path):
+                baseq2_path = path
+                print(f"Found Quake 2 resources at: {baseq2_path}")
+                break
+
+    # If still not found, use default path (will error if files not available)
+    if not baseq2_path:
+        baseq2_path = r"D:\SteamLibrary\steamapps\common\Quake 2\baseq2"
+        print(f"Warning: Could not find Quake 2 resources directory.")
+        print(f"Please set quake2_dir in {os.path.join(os.path.dirname(__file__), '..', 'quake2_config.json')}")
+        print(f"Or copy Quake 2 baseq2 files to: {baseq2_path}")
+
+    # Add baseq2 directory to search path
     if os.path.isdir(baseq2_path):
         FS_AddGameDirectory(baseq2_path)
     else:
-        # Try relative to Quake2Python
-        baseq2_path = os.path.join(os.path.dirname(__file__), "..", "baseq2")
-        if os.path.isdir(baseq2_path):
-            FS_AddGameDirectory(baseq2_path)
+        print(f"ERROR: Quake 2 baseq2 directory not found at: {baseq2_path}")
 
     fs_base_searchpaths = fs_searchpaths
     fs_gamedir = baseq2_path

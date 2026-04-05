@@ -61,7 +61,8 @@ def Cvar_CompleteVariable(partial):
 
 def Cvar_Get(var_name, var_value, flags):
     global cvar_vars
-    if flags & (CVAR_ENUM.CVAR_USERINFO | CVAR_ENUM.CVAR_SERVERINFO):
+    userinfo_mask = CVAR_ENUM.CVAR_USERINFO.value | CVAR_ENUM.CVAR_SERVERINFO.value
+    if flags & userinfo_mask:
         if not Cvar_InfoValidate(var_name):
             Com_Printf("invalid info cvar name")
             return None
@@ -71,7 +72,7 @@ def Cvar_Get(var_name, var_value, flags):
         return var
     if var_value is None:
         return None
-    if flags & (CVAR_ENUM.CVAR_USERINFO | CVAR_ENUM.CVAR_SERVERINFO):
+    if flags & userinfo_mask:
         if not Cvar_InfoValidate(var_value):
             Com_Printf("invalid info cvar value")
             return None
@@ -94,15 +95,16 @@ def Cvar_Set2(var_name, value, force):
     var = Cvar_FindVar(var_name)
     if var is None:
         return Cvar_Get(var_name, value, 0)
-    if var.flags & (CVAR_ENUM.CVAR_USERINFO | CVAR_ENUM.CVAR_SERVERINFO):
+    userinfo_mask = CVAR_ENUM.CVAR_USERINFO.value | CVAR_ENUM.CVAR_SERVERINFO.value
+    if var.flags & userinfo_mask:
         if not Cvar_InfoValidate(value):
             Com_Printf("invalid info cvar value\n")
             return var
     if not force:
-        if var.flags & CVAR_ENUM.CVAR_NOSET:
+        if var.flags & CVAR_ENUM.CVAR_NOSET.value:
             Com_Printf("%s is write protected.\n", var_name)
             return var
-        if var.flags & CVAR_ENUM.CVAR_LATCH:
+        if var.flags & CVAR_ENUM.CVAR_LATCH.value:
             if len(var.latched_string) > 0:
                 if value == var.latched_string:
                     return var
@@ -125,7 +127,7 @@ def Cvar_Set2(var_name, value, force):
     if var.string == value:
         return var
     var.modified = True
-    if var.flags & CVAR_ENUM.CVAR_USERINFO:
+    if var.flags & CVAR_ENUM.CVAR_USERINFO.value:
         global userinfo_modified
         userinfo_modified = True
     var.string = value
@@ -149,7 +151,7 @@ def Cvar_FullSet(var_name, value, flags):
     if var is None:
         return Cvar_Get(var_name, value, flags)
     var.modified = True
-    if var.flags & CVAR_ENUM.CVAR_USERINFO:
+    if var.flags & CVAR_ENUM.CVAR_USERINFO.value:
         global userinfo_modified
         userinfo_modified = True
     var.string = value
@@ -202,9 +204,9 @@ def Cvar_Set_f():
         return
     if c == 4:
         if Cmd_Argv(3) == "u":
-            flags = CVAR_ENUM.CVAR_USERINFO
+            flags = CVAR_ENUM.CVAR_USERINFO.value
         elif Cmd_Argv(3) == "s":
-            flags = CVAR_ENUM.CVAR_SERVERINFO
+            flags = CVAR_ENUM.CVAR_SERVERINFO.value
         else:
             Com_Printf("flags can only be 'u' or 's'\n")
             return
@@ -217,7 +219,7 @@ def Cvar_WriteVariables(path):
     buffer = Mutable()
     with open(path, "a") as f:
         for var in cvar_vars.values():
-            if var.flags & CVAR_ENUM.CVAR_ARCHIVE:
+            if var.flags & CVAR_ENUM.CVAR_ARCHIVE.value:
                 Com_sprintf(buffer, 1024, "set %s \"%s\"\n", var.name, var.string)
                 f.write(buffer.GetValue())
 
@@ -225,21 +227,21 @@ def Cvar_WriteVariables(path):
 def Cvar_List_f():
     count = 0
     for var in cvar_vars.values():
-        if var.flags & CVAR_ENUM.CVAR_ARCHIVE:
+        if var.flags & CVAR_ENUM.CVAR_ARCHIVE.value:
             Com_Printf("*")
         else:
             Com_Printf(" ")
-        if var.flags & CVAR_ENUM.CVAR_USERINFO:
+        if var.flags & CVAR_ENUM.CVAR_USERINFO.value:
             Com_Printf("U")
         else:
             Com_Printf(" ")
-        if var.flags & CVAR_ENUM.CVAR_SERVERINFO:
+        if var.flags & CVAR_ENUM.CVAR_SERVERINFO.value:
             Com_Printf("S")
         else:
             Com_Printf(" ")
-        if var.flags & CVAR_ENUM.CVAR_NOSET:
+        if var.flags & CVAR_ENUM.CVAR_NOSET.value:
             Com_Printf("-")
-        elif var.flags & CVAR_ENUM.CVAR_LATCH:
+        elif var.flags & CVAR_ENUM.CVAR_LATCH.value:
             Com_Printf("L")
         else:
             Com_Printf(" ")
@@ -257,11 +259,11 @@ def Cvar_BitInfo(bit):
 
 
 def Cvar_Userinfo():
-    return Cvar_BitInfo(CVAR_ENUM.CVAR_USERINFO)
+    return Cvar_BitInfo(CVAR_ENUM.CVAR_USERINFO.value)
 
 
 def Cvar_Serverinfo():
-    return Cvar_BitInfo(CVAR_ENUM.CVAR_SERVERINFO)
+    return Cvar_BitInfo(CVAR_ENUM.CVAR_SERVERINFO.value)
 
 
 def Cvar_Init():
