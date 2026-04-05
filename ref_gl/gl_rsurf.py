@@ -1,270 +1,290 @@
 """
 gl_rsurf.py - OpenGL BSP surface rendering
-Renders world geometry from BSP tree
+Renders brush models and BSP surfaces
 """
 
+import struct
 from OpenGL.GL import *
-from wrapper_qpy.custom_classes import Mutable
-from wrapper_qpy.decorators import TODO
 from wrapper_qpy.linker import LinkEmptyFunctions
 
 LinkEmptyFunctions(globals(), ["Com_Printf"])
 
 # ===== Surface Rendering =====
 
-def R_RenderBrushModel(model):
-    """Render a brush model (BSP geometry)"""
+def R_DrawWorld(worldmodel):
+    """Draw world geometry"""
     try:
-        from . import gl_image
-
-        if not model:
+        if not worldmodel:
             return
 
-        # Get model data
-        if not hasattr(model, 'numfaces'):
+        glColor4f(1.0, 1.0, 1.0, 1.0)
+        glDisable(GL_BLEND)
+
+        # Render all faces
+        if hasattr(worldmodel, 'faces') and worldmodel.faces:
+            for face in worldmodel.faces:
+                try:
+                    _draw_face(worldmodel, face)
+                except:
+                    pass
+
+    except Exception as e:
+        Com_Printf(f"R_DrawWorld error: {e}\n")
+
+
+def R_DrawBrushModel(model):
+    """Draw brush model (inline models like doors, platforms)"""
+    try:
+        R_DrawWorld(model)
+    except Exception as e:
+        Com_Printf(f"R_DrawBrushModel error: {e}\n")
+
+
+def _draw_face(model, face):
+    """Draw a single face"""
+    try:
+        # Get face geometry
+        if not hasattr(face, '__getitem__') or 'num_edges' not in face:
             return
 
-        # For each face in model
-        for i in range(model.numfaces):
-            # TODO: Render individual face
+        first_edge = face['first_edge']
+        num_edges = face['num_edges']
+
+        if num_edges <= 0:
+            return
+
+        # Get vertices
+        vertices = []
+
+        if hasattr(model, 'lump_surfedges') and hasattr(model, 'lump_edges') and hasattr(model, 'vertices'):
+            # Parse surfedges and edges on the fly
+            surfedges = _read_surfedges(model.lump_surfedges, first_edge, num_edges)
+            edges = _read_edges(model.lump_edges, surfedges)
+
+            for edge in edges:
+                if isinstance(edge, (list, tuple)) and len(edge) >= 1:
+                    v_idx = edge[0]
+                    if isinstance(v_idx, int) and 0 <= v_idx < len(model.vertices):
+                        v = model.vertices[v_idx]
+                        vertices.append([float(v[0]), float(v[1]), float(v[2])])
+
+        # Render polygon
+        if len(vertices) >= 3:
+            glBegin(GL_POLYGON)
+            for v in vertices:
+                glVertex3f(v[0], v[1], v[2])
+            glEnd()
+
+    except Exception as e:
+        Com_Printf(f"_draw_face error: {e}\n")
+
+
+def _read_surfedges(lump_data, offset, count):
+    """Read surfedge indices"""
+    try:
+        surfedges = []
+        for i in range(count):
+            idx = offset + i
+            if idx * 4 + 4 <= len(lump_data):
+                se = struct.unpack_from('<i', lump_data, idx * 4)[0]
+                surfedges.append(se)
+        return surfedges
+    except:
+        return []
+
+
+def _read_edges(lump_data, surfedge_indices):
+    """Read edges from lump"""
+    try:
+        edges = []
+        for se in surfedge_indices:
+            edge_idx = abs(se)
+            if edge_idx * 4 + 4 <= len(lump_data):
+                v0 = struct.unpack_from('<H', lump_data, edge_idx * 4)[0]
+                v1 = struct.unpack_from('<H', lump_data, edge_idx * 4 + 2)[0]
+                edges.append([v0 if se >= 0 else v1, v1 if se >= 0 else v0])
+        return edges
+    except:
+        return []
+
+
+# ===== Lightmap Management =====
+
+lightmap_atlas = None
+lightmap_block = None
+
+
+class LightmapBlock:
+    """Lightmap atlas block for efficient rendering"""
+    def __init__(self, width=1024, height=1024):
+        self.width = width
+        self.height = height
+        self.data = bytearray(width * height * 4)  # RGBA
+        self.next_x = 0
+        self.next_y = 0
+        self.row_height = 0
+        self.tex_id = None
+
+    def allocate(self, width, height):
+        """Allocate block in lightmap atlas"""
+        if self.next_x + width > self.width:
+            # Move to next row
+            self.next_x = 0
+            self.next_y += self.row_height
+            self.row_height = 0
+
+        if self.next_y + height > self.height:
+            # Lightmap full, upload and reset
+            self.upload()
+            self.reset()
+
+        x = self.next_x
+        y = self.next_y
+        self.next_x += width
+        self.row_height = max(self.row_height, height)
+
+        return x, y
+
+    def upload(self):
+        """Upload lightmap to GPU"""
+        try:
+            if self.tex_id is None:
+                self.tex_id = glGenTextures(1)
+
+            glBindTexture(GL_TEXTURE_2D, self.tex_id)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                         self.width, self.height, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE,
+                         bytes(self.data))
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        except:
             pass
 
-    except Exception as e:
-        print(f"R_RenderBrushModel error: {e}")
+    def reset(self):
+        """Reset block for next allocation"""
+        self.data = bytearray(self.width * self.height * 4)
+        self.next_x = 0
+        self.next_y = 0
+        self.row_height = 0
 
 
-def R_RenderWorld():
-    """Render the world BSP"""
+def GL_BeginBuildingLightmaps():
+    """Start lightmap building"""
+    global lightmap_block
+    lightmap_block = LightmapBlock()
+
+
+def GL_EndBuildingLightmaps():
+    """Finish lightmap building"""
+    global lightmap_block
+    if lightmap_block:
+        lightmap_block.upload()
+
+
+def GL_CreateSurfaceLightmap(surf):
+    """Allocate lightmap for surface"""
     try:
-        # TODO: Render entire BSP tree with frustum culling
-        pass
+        if not lightmap_block:
+            GL_BeginBuildingLightmaps()
+
+        # For now, just allocate space (minimal lightmap)
+        lm_x, lm_y = lightmap_block.allocate(16, 16)
+
+        # Store lightmap coordinates in surface
+        if isinstance(surf, dict):
+            surf['lm_x'] = lm_x
+            surf['lm_y'] = lm_y
 
     except Exception as e:
-        print(f"R_RenderWorld error: {e}")
+        Com_Printf(f"GL_CreateSurfaceLightmap error: {e}\n")
 
 
-def R_DrawSurfaces():
-    """Draw all visible surfaces"""
+def R_MarkLeaves():
+    """Mark visible leaves using PVS"""
+    pass
+
+
+def R_SetFrustum():
+    """Extract frustum planes from matrices"""
+    pass
+
+
+def R_RenderBrushModel(model):
+    """Render brush model with fullbright"""
+    R_DrawWorld(model)
+
+
+def DrawGLPoly(poly_verts):
+    """Draw a polygon"""
     try:
-        # TODO: Draw accumulated surface list
-        pass
-
-    except Exception as e:
-        print(f"R_DrawSurfaces error: {e}")
-
-
-# ===== Surface Functions =====
-
-def R_TextureAnimation(tex):
-    """Handle animated textures"""
-    # TODO: Implement texture animation
-    return tex
-
-
-def DrawGLPoly(p):
-    """Draw a polygon with lighting"""
-    try:
-        if not p or not hasattr(p, 'numverts'):
+        if len(poly_verts) < 3:
             return
 
         glBegin(GL_POLYGON)
-
-        for i in range(p.numverts):
-            # TODO: Use vertex data
-            glVertex3f(0, 0, 0)
-
+        for v in poly_verts:
+            glVertex3f(v[0], v[1], v[2])
         glEnd()
+    except:
+        pass
 
-    except Exception as e:
-        print(f"DrawGLPoly error: {e}")
 
-
-def DrawGLFlowingPoly(fa):
-    """Draw flowing polygon (water/lava)"""
-    # TODO: Implement flowing surface
+def DrawTextureChains():
+    """Render surfaces grouped by texture"""
     pass
-
-
-def RenderBrushPoly(fa):
-    """Render a brush face"""
-    # TODO: Implement brush face rendering
-    pass
-
-
-def RenderLightmappedPoly(surf):
-    """Render surface with lightmap"""
-    try:
-        from . import gl_image
-
-        # Bind surface texture
-        # TODO: Get surface texture ID
-        # gl_image.GL_Bind(surf.texinfo.image)
-
-        # Draw surface
-        # TODO: DrawGLPoly(surf.polys)
-
-    except Exception as e:
-        print(f"RenderLightmappedPoly error: {e}")
 
 
 def R_DrawAlphaSurfaces():
     """Draw transparent surfaces"""
-    # TODO: Implement alpha surface rendering
     pass
 
 
-# ===== Lightmap Functions =====
-
-def GL_BuildLightmaps():
-    """Build lightmaps from BSP data"""
-    # TODO: Implement lightmap building
+def GL_SubdivideSurface(face):
+    """Subdivide large surfaces"""
     pass
 
 
-def R_SetCacheState(surf):
-    """Update cache state for surface"""
+def R_BuildLightMap(surf):
+    """Build lightmap for surface"""
     pass
 
 
-# ===== Fog/Atmosphere =====
-
-def R_MarkSurfaces():
-    """Mark visible surfaces from viewpoint"""
-    # TODO: Implement visibility marking with PVS
+def R_BlendLightmaps():
+    """Blend lightmaps into surfaces"""
     pass
+
+
+def GL_RenderLightmappedPoly(surf):
+    """Render lightmapped polygon"""
+    pass
+
+
+def R_TextureAnimation(texinfo):
+    """Get animated texture frame"""
+    try:
+        if isinstance(texinfo, dict):
+            return texinfo.get('imageindex', 0)
+        return 0
+    except:
+        return 0
 
 
 def R_ClearSkyBox():
-    """Clear skybox surfaces"""
-    glClearColor(0.0, 0.0, 0.0, 1.0)
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    """Clear skybox"""
+    glClearColor(0.5, 0.5, 0.5, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT)
 
 
-@TODO
-def R_SetFrustum():
+def DrawSkyBox():
+    """Draw skybox"""
     pass
 
 
-@TODO
-def R_RecursiveWorldNode(node):
+def R_RecursiveWorldNode(node, refdef):
+    """Recursively traverse BSP tree for rendering"""
     pass
 
 
-@TODO
-def R_MarkLeaves():
-    pass
-
-
-@TODO
-def DrawTextureChains():
-    pass
-
-
-@TODO
-def GL_SubdivideSurface(fa):
-    pass
-
-
-@TODO
-def R_BuildLightMap(surf, dest, stride):
-    pass
-
-
-@TODO
-def R_TextureAnimation(tex):
-    pass
-
-
-@TODO
-def DrawGLPoly(p):
-    pass
-
-
-@TODO
-def DrawGLFlowingPoly(fa):
-    pass
-
-
-@TODO
-def R_DrawTriangleOutlines():
-    pass
-
-
-@TODO
-def DrawGLPolyChain(p, soffset, toffset):
-    pass
-
-
-@TODO
-def R_BlendLightmaps():
-    pass
-
-
-@TODO
-def R_RenderBrushPoly(fa):
-    pass
-
-
-@TODO
-def R_DrawAlphaSurfaces():
-    pass
-
-
-@TODO
-def DrawTextureChains():
-    pass
-
-
-@TODO
-def GL_RenderLightmappedPoly(surf):
-    pass
-
-
-@TODO
-def R_DrawBrushModel(e):
-    pass
-
-
-@TODO
-def R_RecursiveWorldNode(node):
-    pass
-
-
-@TODO
-def R_DrawWorld():
-    pass
-
-
-@TODO
-def R_MarkLeaves():
-    pass
-
-
-@TODO
-def LM_InitBlock():
-    pass
-
-
-@TODO
-def LM_UploadBlock(dynamic):
-    pass
-
-
-@TODO
-def GL_BuildPolygonFromSurface(fa):
-    pass
-
-
-@TODO
-def GL_CreateSurfaceLightmap(surf):
-    pass
-
-
-@TODO
-def GL_BeginBuildingLightmaps(m):
-    pass
-
-
-@TODO
-def GL_EndBuildingLightmaps():
+def RecursiveLightPoint(node, start, end):
+    """Find light value at point"""
     pass

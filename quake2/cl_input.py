@@ -253,3 +253,143 @@ def CL_SendCmd():
     except Exception:
         pass
     return cmd
+
+
+# ===== Pygame Event Handling =====
+
+def IN_Frame():
+    """Process input events from pygame"""
+    try:
+        import pygame
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+
+            elif event.type == pygame.KEYDOWN:
+                _handle_keydown(event.key)
+
+            elif event.type == pygame.KEYUP:
+                _handle_keyup(event.key)
+
+            elif event.type == pygame.MOUSEMOTION:
+                _handle_mousemotion(event.rel)
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                _handle_mousebuttondown(event.button)
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                _handle_mousebuttonup(event.button)
+
+        return True
+
+    except Exception as e:
+        return True
+
+
+def _handle_keydown(key):
+    """Handle key down event"""
+    # WASD movement
+    if key == pygame.K_w:
+        KeyDown(in_forward)
+    elif key == pygame.K_s:
+        KeyDown(in_back)
+    elif key == pygame.K_a:
+        KeyDown(in_moveleft)
+    elif key == pygame.K_d:
+        KeyDown(in_moveright)
+
+    # Arrow keys
+    elif key == pygame.K_UP:
+        KeyDown(in_lookup)
+    elif key == pygame.K_DOWN:
+        KeyDown(in_lookdown)
+    elif key == pygame.K_LEFT:
+        KeyDown(in_left)
+    elif key == pygame.K_RIGHT:
+        KeyDown(in_right)
+
+    # Space - jump/up
+    elif key == pygame.K_SPACE:
+        KeyDown(in_up)
+
+    # Ctrl - crouch/down
+    elif key == pygame.K_LCTRL or key == pygame.K_RCTRL:
+        KeyDown(in_down)
+
+    # Shift - run
+    elif key == pygame.K_LSHIFT or key == pygame.K_RSHIFT:
+        KeyDown(in_speed)
+
+    # E - use
+    elif key == pygame.K_e:
+        KeyDown(in_use)
+
+    # Mouse button (attack)
+    elif key == pygame.K_LMETA:
+        KeyDown(in_attack)
+
+    # ESC - menu (set key_dest_game)
+    elif key == pygame.K_ESCAPE:
+        _State.key_dest_game = False
+
+
+def _handle_keyup(key):
+    """Handle key up event"""
+    if key == pygame.K_w:
+        KeyUp(in_forward)
+    elif key == pygame.K_s:
+        KeyUp(in_back)
+    elif key == pygame.K_a:
+        KeyUp(in_moveleft)
+    elif key == pygame.K_d:
+        KeyUp(in_moveright)
+
+    elif key == pygame.K_UP:
+        KeyUp(in_lookup)
+    elif key == pygame.K_DOWN:
+        KeyUp(in_lookdown)
+    elif key == pygame.K_LEFT:
+        KeyUp(in_left)
+    elif key == pygame.K_RIGHT:
+        KeyUp(in_right)
+
+    elif key == pygame.K_SPACE:
+        KeyUp(in_up)
+
+    elif key == pygame.K_LCTRL or key == pygame.K_RCTRL:
+        KeyUp(in_down)
+
+    elif key == pygame.K_LSHIFT or key == pygame.K_RSHIFT:
+        KeyUp(in_speed)
+
+    elif key == pygame.K_e:
+        KeyUp(in_use)
+
+    elif key == pygame.K_LMETA:
+        KeyUp(in_attack)
+
+
+def _handle_mousemotion(rel):
+    """Handle mouse motion for look"""
+    if _State.key_dest_game:
+        # Apply mouse deltas to view angles
+        mouse_x, mouse_y = rel
+        _State.frame_player_delta_angles[YAW] -= int(mouse_x * 0.5)
+        _State.frame_player_delta_angles[PITCH] -= int(mouse_y * 0.5)
+
+
+def _handle_mousebuttondown(button):
+    """Handle mouse button press"""
+    if button == 1:  # Left mouse - attack
+        KeyDown(in_attack)
+    elif button == 3:  # Right mouse - use
+        KeyDown(in_use)
+
+
+def _handle_mousebuttonup(button):
+    """Handle mouse button release"""
+    if button == 1:
+        KeyUp(in_attack)
+    elif button == 3:
+        KeyUp(in_use)

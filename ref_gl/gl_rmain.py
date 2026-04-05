@@ -62,20 +62,18 @@ def R_Shutdown():
 
 # ===== View Setup =====
 
-def R_SetupViewport(width, height):
+def R_SetupViewport(width, height, fov_y=75.0):
     """Setup viewport and projection matrix"""
-    glViewport(0, 0, width, height)
+    glViewport(0, 0, int(width), int(height))
 
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
 
-    # 70 degree FOV
-    fov_y = 70.0
     aspect = width / height if height > 0 else 1.0
     near = 4.0
     far = 4096.0
 
-    # Use perspective
+    # Use perspective with proper FOV
     f = 1.0 / math.tan(math.radians(fov_y) / 2.0)
     GLFrustum(-near * aspect / f, near * aspect / f,
               -near / f, near / f,
@@ -90,13 +88,17 @@ def R_SetupMatrices(refdef):
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
+    # Get view angles from refdef (handle both list and object access)
+    viewangles = refdef.viewangles if hasattr(refdef, 'viewangles') else [0, 0, 0]
+    vieworg = refdef.vieworg if hasattr(refdef, 'vieworg') else [0, 0, 0]
+
     # Apply view rotation (pitch, yaw, roll)
-    glRotatef(-refdef.viewangles[2], 1, 0, 0)  # Roll
-    glRotatef(-refdef.viewangles[0], 1, 0, 0)  # Pitch
-    glRotatef(-refdef.viewangles[1], 0, 1, 0)  # Yaw
+    glRotatef(-viewangles[2], 1, 0, 0)  # Roll
+    glRotatef(-viewangles[0], 1, 0, 0)  # Pitch
+    glRotatef(-viewangles[1], 0, 1, 0)  # Yaw
 
     # Apply view position
-    glTranslatef(-refdef.vieworg[0], -refdef.vieworg[1], -refdef.vieworg[2])
+    glTranslatef(-vieworg[0], -vieworg[1], -vieworg[2])
 
 
 def R_ClearScreen():
@@ -116,9 +118,13 @@ def R_RenderFrame(refdef_in):
         from . import gl_rsurf
         from . import gl_model
         from . import gl_mesh
-        from ..quake2.common import Com_Printf
 
         refdef = refdef_in
+
+        # Get refdef dimensions
+        width = refdef.width if hasattr(refdef, 'width') else 800
+        height = refdef.height if hasattr(refdef, 'height') else 600
+        fov_y = refdef.fov_y if hasattr(refdef, 'fov_y') else 75.0
 
         # Begin frame
         glw_imp.GLimp_BeginFrame(0)
@@ -126,39 +132,39 @@ def R_RenderFrame(refdef_in):
         # Clear screen
         R_ClearScreen()
 
-        # Setup viewport
-        R_SetupViewport(800, 600)  # TODO: Get actual viewport size
+        # Setup viewport and projection
+        R_SetupViewport(width, height, fov_y)
 
-        # Setup camera
+        # Setup camera matrices
         R_SetupMatrices(refdef)
 
         # Render world
-        if refdef.rdflags & 1:  # RDF_NOWORLDMODEL
-            # Don't render world
-            pass
-        else:
+        rdflags = refdef.rdflags if hasattr(refdef, 'rdflags') else 0
+        if not (rdflags & 1):  # RDF_NOWORLDMODEL = 1
             try:
-                # Render world geometry (BSP)
-                gl_rsurf.R_RenderBrushModel(refdef.worldmodel)
-            except:
+                # Get world model
+                worldmodel = refdef.worldmodel if hasattr(refdef, 'worldmodel') else None
+                if worldmodel and hasattr(gl_rsurf, 'R_DrawWorld'):
+                    gl_rsurf.R_DrawWorld(worldmodel)
+            except Exception as e:
                 pass
 
         # Render entities
         try:
             R_DrawEntitiesOnList()
-        except:
+        except Exception as e:
             pass
 
         # Render particles
         try:
             R_DrawParticles()
-        except:
+        except Exception as e:
             pass
 
         # Post-process effects
         try:
             R_PolyBlend()
-        except:
+        except Exception as e:
             pass
 
         # End frame
@@ -186,27 +192,34 @@ def R_DrawEntitiesOnList():
             if not ent:
                 continue
 
-            glPushMatrix()
+            # Skip if no model
+            if not ent.model:
+                continue
 
-            # Apply entity transform
-            glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
-
-            # TODO: Apply rotation
+            # Get model type
+            model_type = ent.model.type if hasattr(ent.model, 'type') else None
 
             # Draw based on model type
-            if ent.model:
-                try:
-                    if hasattr(ent.model, 'type'):
-                        if ent.model.type == 'alias':
-                            # MD2 model
-                            gl_mesh.R_DrawAliasModel(ent)
-                        elif ent.model.type == 'sprite':
-                            # Sprite
-                            R_DrawSpriteModel(ent)
-                except:
+            try:
+                if model_type == 2:  # MODEL_ALIAS = 2 (MD2)
+                    gl_mesh.R_DrawAliasModel(ent)
+                elif model_type == 3:  # MODEL_SPRITE = 3
+                    R_DrawSpriteModel(ent)
+                elif model_type == 1:  # MODEL_BRUSH = 1
+                    gl_model.R_DrawBrushModel(ent)
+                else:
+                    # Fallback - draw a placeholder
+                    glPushMatrix()
+                    glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
                     R_DrawNullModel()
+                    glPopMatrix()
 
-            glPopMatrix()
+            except Exception as e:
+                # Draw null model as fallback
+                glPushMatrix()
+                glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
+                R_DrawNullModel()
+                glPopMatrix()
 
     except Exception as e:
         print(f"R_DrawEntitiesOnList error: {e}")
@@ -219,18 +232,17 @@ def R_DrawSpriteModel(e):
 
 
 def R_DrawNullModel():
-    """Draw null model (placeholder)"""
-    # Draw a small cube
+    """Draw null model (placeholder cross)"""
     glColor3f(1.0, 1.0, 1.0)
-    glBegin(GL_CUBES)
-    glVertex3f(-4, -4, -4)
-    glVertex3f(4, -4, -4)
-    glVertex3f(4, 4, -4)
-    glVertex3f(-4, 4, -4)
-    glVertex3f(-4, -4, 4)
-    glVertex3f(4, -4, 4)
-    glVertex3f(4, 4, 4)
-    glVertex3f(-4, 4, 4)
+    glLineWidth(1.0)
+    glBegin(GL_LINES)
+    # Draw X cross
+    glVertex3f(-8, 0, 0)
+    glVertex3f(8, 0, 0)
+    glVertex3f(0, -8, 0)
+    glVertex3f(0, 8, 0)
+    glVertex3f(0, 0, -8)
+    glVertex3f(0, 0, 8)
     glEnd()
 
 

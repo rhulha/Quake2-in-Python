@@ -4,6 +4,7 @@ Handles WAL, PCX, and TGA image formats
 """
 
 import struct
+import numpy as np
 from OpenGL.GL import *
 from wrapper_qpy.decorators import TODO
 from wrapper_qpy.custom_classes import Mutable
@@ -15,6 +16,7 @@ LinkEmptyFunctions(globals(), ["Com_Printf", "Com_Error"])
 
 texture_cache = {}
 textures = []
+palette_data = None  # Global palette (256 * 3 bytes RGB)
 
 # ===== WAL Format =====
 
@@ -34,6 +36,10 @@ def LoadWal(filename):
     """Load WAL texture file"""
     try:
         from ..quake2.files import FS_LoadFile
+        global palette_data
+
+        if palette_data is None:
+            return None
 
         data, length = FS_LoadFile(filename)
         if data is None:
@@ -62,30 +68,49 @@ def LoadWal(filename):
 
         pixel_data = data[header.offset[0]:header.offset[0] + header.width * header.height]
 
+        # Convert palette indices to RGBA
+        rgba_data = _palette_to_rgba(pixel_data)
+
         # Create OpenGL texture
         tex_id = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex_id)
 
-        # Upload as indexed color (8-bit paletted)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
+        # Upload as RGBA
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                      header.width, header.height, 0,
-                     GL_LUMINANCE, GL_UNSIGNED_BYTE,
-                     pixel_data)
+                     GL_RGBA, GL_UNSIGNED_BYTE,
+                     rgba_data)
 
         # Set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-
-        # Generate mipmaps
-        glGenerateMipmap(GL_TEXTURE_2D)
 
         return tex_id
 
     except Exception as e:
         print(f"LoadWal error: {e}")
         return None
+
+
+def _palette_to_rgba(indexed_data):
+    """Convert palette-indexed bytes to RGBA using global palette"""
+    global palette_data
+    if palette_data is None:
+        return None
+
+    # Create RGBA buffer
+    rgba = bytearray(len(indexed_data) * 4)
+
+    for i, idx in enumerate(indexed_data):
+        pal_idx = min(int(idx), 255) * 3
+        rgba[i*4 + 0] = palette_data[pal_idx + 0]
+        rgba[i*4 + 1] = palette_data[pal_idx + 1]
+        rgba[i*4 + 2] = palette_data[pal_idx + 2]
+        rgba[i*4 + 3] = 255
+
+    return bytes(rgba)
 
 
 # ===== PCX Format =====
@@ -110,6 +135,7 @@ def LoadPcx(filename):
     """Load PCX image file"""
     try:
         from ..quake2.files import FS_LoadFile
+        global palette_data
 
         data, length = FS_LoadFile(filename)
         if data is None or length < 128:
@@ -155,14 +181,24 @@ def LoadPcx(filename):
         if len(pixel_data) < header.width * header.height:
             return None
 
+        # Use palette conversion if available (for colormap), else greyscale
+        if palette_data is not None:
+            rgba_data = _palette_to_rgba(bytes(pixel_data[:header.width * header.height]))
+            upload_format = GL_RGBA
+            upload_type = GL_RGBA
+        else:
+            rgba_data = bytes(pixel_data[:header.width * header.height])
+            upload_format = GL_LUMINANCE
+            upload_type = GL_LUMINANCE
+
         # Create OpenGL texture
         tex_id = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, tex_id)
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE,
+        glTexImage2D(GL_TEXTURE_2D, 0, upload_format,
                      header.width, header.height, 0,
-                     GL_LUMINANCE, GL_UNSIGNED_BYTE,
-                     bytes(pixel_data[:header.width * header.height]))
+                     upload_type, GL_UNSIGNED_BYTE,
+                     rgba_data)
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
@@ -225,6 +261,7 @@ def GL_LoadPalette():
     """Load Quake palette from colormap"""
     try:
         from ..quake2.files import FS_LoadFile
+        global palette_data
 
         data, length = FS_LoadFile("pics/colormap.pcx")
         if data is None or length < 768 + 128:
@@ -232,165 +269,168 @@ def GL_LoadPalette():
 
         # Palette is last 768 bytes (256 colors * 3 bytes RGB)
         palette = data[length - 768:length]
+        palette_data = palette
 
-        # Convert to OpenGL palette texture
-        tex_id = glGenTextures(1)
-        glBindTexture(GL_TEXTURE_1D, tex_id)
+        return len(palette) == 768
 
-        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB,
-                     256, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE,
-                     palette)
-
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
-
-        return tex_id
-
-    except:
+    except Exception as e:
+        print(f"GL_LoadPalette error: {e}")
         return None
 
 
-@TODO
-def GL_SetTexturePalette(palette):
-    pass
 
 
-@TODO
-def GL_EnableMultitexture(enable):
-    pass
-
-
-@TODO
-def GL_SelectTexture(texture):
-    pass
-
-
-@TODO
-def GL_TexEnv(mode):
-    pass
-
-
-@TODO
-def GL_Bind(texnum):
-    pass
-
-
-@TODO
-def GL_MBind(target, texnum):
-    pass
-
-
-@TODO
-def GL_TextureMode(string):
-    pass
-
-
-@TODO
-def GL_TextureAlphaMode(string):
-    pass
-
-
-@TODO
-def GL_TextureSolidMode(string):
-    pass
-
-
-@TODO
-def GL_ImageList_f():
-    pass
-
-
-@TODO
-def Scrap_AllocBlock(w, h, x: Mutable, y: Mutable):
-    pass
-
-
-@TODO
-def Scrap_Upload():
-    pass
-
-
-@TODO
-def LoadPCX(filename, pic, palette, width: Mutable, height: Mutable):
-    pass
-
-
-@TODO
-def LoadTGA(name, pic, width: Mutable, height: Mutable):
-    pass
-
-
-@TODO
-def R_FloodFillSkin(skin, skinwidth, skinheight):
-    pass
-
-
-@TODO
-def GL_ResampleTexture(_in, inwidth, inheight, out, outwidth, outheight):
-    pass
-
-
-@TODO
-def GL_LightScaleTexture(_in, inwidth, inheight, only_game):
-    pass
-
-
-@TODO
-def GL_MipMap(_in, width, height):
-    pass
-
-
-@TODO
-def GL_BuildPalettedTexture(paleetted_texture, scaled, scaled_width, scald_height):
-    pass
-
-
-@TODO
 def GL_Upload32(data, width, height, mipmap):
-    pass
+    """Upload 32-bit RGBA texture data"""
+    try:
+        tex_id = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, tex_id)
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                     width, height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE,
+                     data)
+
+        if mipmap:
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+            glGenerateMipmap(GL_TEXTURE_2D)
+        else:
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+        return tex_id
+    except Exception as e:
+        print(f"GL_Upload32 error: {e}")
+        return None
 
 
-@TODO
 def GL_Upload8(data, width, height, mipmap, is_sky):
-    pass
+    """Upload 8-bit paletted texture data"""
+    try:
+        global palette_data
+        if palette_data is None:
+            return None
+
+        # Convert palette indices to RGBA
+        rgba_data = _palette_to_rgba(data)
+        if rgba_data is None:
+            return None
+
+        return GL_Upload32(rgba_data, width, height, mipmap)
+
+    except Exception as e:
+        print(f"GL_Upload8 error: {e}")
+        return None
 
 
-@TODO
 def GL_LoadPic(name, pic, width, height, _type, bits):
-    pass
+    """Load and cache a picture"""
+    try:
+        if name in texture_cache:
+            return texture_cache[name]
+
+        # Upload the image data
+        if bits == 32:
+            tex_id = GL_Upload32(pic, width, height, False)
+        elif bits == 8:
+            tex_id = GL_Upload8(pic, width, height, False, False)
+        else:
+            return None
+
+        if tex_id is not None:
+            texture_cache[name] = tex_id
+            textures.append(tex_id)
+
+        return tex_id
+
+    except Exception as e:
+        print(f"GL_LoadPic error: {e}")
+        return None
 
 
-@TODO
 def GL_LoadWal(name):
-    pass
+    """Load WAL format image"""
+    return LoadWal(name)
 
 
-@TODO
 def GL_FindImage(name, _type):
-    pass
+    """Find or load an image by name"""
+    try:
+        if name in texture_cache:
+            return texture_cache[name]
+
+        if not name:
+            return None
+
+        # Try different extensions
+        tex_id = None
+
+        if name.endswith('.wal'):
+            tex_id = LoadWal(name)
+        elif name.endswith('.pcx'):
+            tex_id = LoadPcx(name)
+        else:
+            # Try WAL first
+            tex_id = LoadWal(f"{name}.wal")
+            if tex_id is None:
+                tex_id = LoadPcx(f"{name}.pcx")
+
+        if tex_id is not None:
+            texture_cache[name] = tex_id
+            textures.append(tex_id)
+            return tex_id
+
+        return None
+
+    except Exception as e:
+        print(f"GL_FindImage error: {e}")
+        return None
 
 
-@TODO
 def R_RegisterSkin(name):
-    pass
+    """Register a skin texture"""
+    return GL_FindImage(name, 1)  # 1 = skin type
 
 
-@TODO
 def GL_FreeUnusedImages():
+    """Free images not used recently"""
     pass
 
 
-@TODO
 def Draw_GetPalette():
-    pass
+    """Get the current palette"""
+    global palette_data
+    return palette_data
 
 
-@TODO
 def GL_InitImages():
-    pass
+    """Initialize texture system"""
+    global texture_cache, textures
+    texture_cache = {}
+    textures = []
+
+    # Load palette
+    GL_LoadPalette()
+
+    # Load built-in images
+    GL_FindImage("pics/conchars", 1)  # Console characters
+    GL_FindImage("pics/console", 1)    # Console background
 
 
-@TODO
 def GL_ShutdownImages():
-    pass
+    """Shutdown texture system"""
+    global texture_cache, textures, palette_data
+
+    # Delete all textures
+    for tex_id in textures:
+        try:
+            glDeleteTextures([tex_id])
+        except:
+            pass
+
+    texture_cache = {}
+    textures = []
+    palette_data = None

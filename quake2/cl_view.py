@@ -1,16 +1,20 @@
 import math
+import time
+from shared.render_types import refdef_t, entity_t, dlight_t, particle_t, lightstyle_t
 
 
 class _ViewState:
     entities = []
     particles = []
     dlights = []
-    lightstyles = [[1.0, 1.0, 1.0] for _ in range(64)]
+    lightstyles = [lightstyle_t() for _ in range(64)]
     gun_model_index = 0
     gun_frame = 0
     prepared = False
     crosshair = "+"
-    last_refdef = {}
+    last_refdef = None
+    vieworg = [0.0, 0.0, 0.0]
+    viewangles = [0.0, 0.0, 0.0]
 
 
 def V_ClearScene():
@@ -20,57 +24,89 @@ def V_ClearScene():
 
 
 def V_AddEntity(ent):
+    """Add entity to render list"""
     if ent is None:
         return
+
+    # Convert dict-style entities to entity_t if needed
+    if isinstance(ent, dict):
+        ent = entity_t(
+            model=ent.get('model'),
+            angles=ent.get('angles', [0.0, 0.0, 0.0]),
+            origin=ent.get('origin', [0.0, 0.0, 0.0]),
+            frame=ent.get('frame', 0),
+            oldorigin=ent.get('oldorigin', [0.0, 0.0, 0.0]),
+            oldframe=ent.get('oldframe', 0),
+            backlerp=ent.get('backlerp', 0.0),
+            skinnum=ent.get('skinnum', 0),
+            lightstyle=ent.get('lightstyle', 0),
+            alpha=ent.get('alpha', 1.0),
+            skin=ent.get('skin'),
+            flags=ent.get('flags', 0),
+        )
+
     _ViewState.entities.append(ent)
 
 
 def V_AddParticle(org, color, alpha):
-    _ViewState.particles.append({
-        "org": list(org),
-        "color": int(color),
-        "alpha": float(alpha),
-    })
+    """Add particle to render list"""
+    p = particle_t(
+        origin=list(org) if hasattr(org, '__iter__') else [org, 0.0, 0.0],
+        color=[int(color) >> 16 & 0xFF, int(color) >> 8 & 0xFF, int(color) & 0xFF],
+        alpha=float(alpha),
+    )
+    _ViewState.particles.append(p)
 
 
 def V_AddLight(org, intensity, r, g, b):
-    _ViewState.dlights.append({
-        "org": list(org),
-        "intensity": float(intensity),
-        "color": [float(r), float(g), float(b)],
-    })
+    """Add dynamic light to render list"""
+    d = dlight_t(
+        origin=list(org) if hasattr(org, '__iter__') else [org, 0.0, 0.0],
+        color=[float(r), float(g), float(b)],
+        intensity=float(intensity),
+    )
+    _ViewState.dlights.append(d)
 
 
 def V_AddLightStyle(style, r, g, b):
+    """Update light style animation"""
     if 0 <= style < len(_ViewState.lightstyles):
-        _ViewState.lightstyles[style] = [float(r), float(g), float(b)]
+        _ViewState.lightstyles[style] = lightstyle_t(
+            rgb=[float(r), float(g), float(b)],
+            white=max(r, g, b)
+        )
 
 
 def V_TestParticles():
+    """Debug: add test particles"""
     for i in range(32):
         V_AddParticle([float(i * 2), 0.0, 24.0], i & 255, 1.0)
 
 
 def V_TestEntities():
+    """Debug: add test entities"""
     for i in range(8):
-        V_AddEntity({
-            "origin": [float(i * 32), 0.0, 16.0],
-            "angles": [0.0, 0.0, 0.0],
-            "modelindex": 1,
-        })
+        V_AddEntity(entity_t(
+            origin=[float(i * 32), 0.0, 16.0],
+            angles=[0.0, 0.0, 0.0],
+            modelindex=1,
+        ))
 
 
 def V_TestLights():
+    """Debug: add test lights"""
     for i in range(8):
         V_AddLight([float(i * 64), 0.0, 64.0], 200.0, 1.0, 0.75, 0.5)
 
 
 def CL_PrepRefresh():
+    """Prepare for rendering"""
     _ViewState.prepared = True
     V_ClearScene()
 
 
 def CalcFov(fov_x, width, height):
+    """Calculate vertical FOV from horizontal FOV"""
     if fov_x < 1:
         fov_x = 1
     if fov_x > 179:
@@ -102,41 +138,73 @@ def SCR_DrawCrosshair():
     return _ViewState.crosshair
 
 
-def V_RenderView(stereo_separation):
+def V_RenderView(fov_x=90.0, width=800, height=600):
+    """Build refdef and render frame"""
+    global client
+
     if not _ViewState.prepared:
         CL_PrepRefresh()
 
-    refdef = {
-        "stereo": float(stereo_separation),
-        "entities": list(_ViewState.entities),
-        "particles": list(_ViewState.particles),
-        "dlights": list(_ViewState.dlights),
-        "lightstyles": list(_ViewState.lightstyles),
-        "gun_model_index": _ViewState.gun_model_index,
-        "gun_frame": _ViewState.gun_frame,
-    }
+    # Get player viewpoint from server state (for single-player)
+    try:
+        from . import sv_main
+        if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
+            player = sv_main.server.edicts[0]  # Entity 0 is the player
+            if player and hasattr(player, 'origin') and hasattr(player, 'angles'):
+                _ViewState.vieworg = list(player.origin) if hasattr(player.origin, '__iter__') else [0, 0, 0]
+                _ViewState.viewangles = list(player.angles) if hasattr(player.angles, '__iter__') else [0, 0, 0]
+    except:
+        pass
+
+    # Build refdef_t
+    fov_y = CalcFov(fov_x, width, height)
+
+    refdef = refdef_t(
+        x=0,
+        y=0,
+        width=width,
+        height=height,
+        fov_x=float(fov_x),
+        fov_y=float(fov_y),
+        vieworg=_ViewState.vieworg,
+        viewangles=_ViewState.viewangles,
+        blend=[0.0, 0.0, 0.0, 0.0],
+        time=time.time(),
+        rdflags=0,
+        areabits=b'',
+        lightstyles=list(_ViewState.lightstyles),
+        entities=list(_ViewState.entities),
+        dlights=list(_ViewState.dlights),
+        particles=list(_ViewState.particles),
+        worldmodel=None,
+    )
+
     _ViewState.last_refdef = refdef
 
+    # Render the frame
     try:
-        from . import vid_dll
-        if hasattr(vid_dll, "R_RenderFrame"):
-            vid_dll.R_RenderFrame(refdef)
-    except Exception:
-        return refdef
+        from ref_gl import gl_rmain
+        gl_rmain.R_RenderFrame(refdef)
+    except Exception as e:
+        print(f"V_RenderView error: {e}")
 
     return refdef
 
 
 def V_Viewpos_f():
+    """Debug: show view info"""
     ref = _ViewState.last_refdef
     if not ref:
         return "view not rendered"
-    return f"ents={len(ref['entities'])} particles={len(ref['particles'])} lights={len(ref['dlights'])}"
+    return f"ents={len(ref.entities)} particles={len(ref.particles)} lights={len(ref.dlights)} pos={ref.vieworg}"
 
 
 def V_Init():
+    """Initialize view system"""
     _ViewState.gun_model_index = 0
     _ViewState.gun_frame = 0
     _ViewState.prepared = False
-    _ViewState.last_refdef = {}
+    _ViewState.last_refdef = None
+    _ViewState.vieworg = [0.0, 0.0, 0.0]
+    _ViewState.viewangles = [0.0, 0.0, 0.0]
     V_ClearScene()

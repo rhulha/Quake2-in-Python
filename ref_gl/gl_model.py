@@ -3,17 +3,11 @@ gl_model.py - Model loading and rendering
 Handles BSP, MD2 (alias), and sprite model types
 """
 
+import struct
 from OpenGL.GL import *
-from wrapper_qpy.decorators import TODO
-from wrapper_qpy.custom_classes import Mutable
 from wrapper_qpy.linker import LinkEmptyFunctions
 
 LinkEmptyFunctions(globals(), ["Com_Printf"])
-
-# ===== Model Cache =====
-
-mod_known = []
-mod_numknown = 0
 
 # ===== Model Types =====
 
@@ -22,8 +16,14 @@ MODEL_ALIAS = 2
 MODEL_SPRITE = 3
 MODEL_NULL = 4
 
+# ===== Model Cache =====
+
+mod_known = {}  # Map name -> Model
+registration_sequence = 0
+
 
 class Model:
+    """BSP or MD2 model"""
     def __init__(self, name):
         self.name = name
         self.type = MODEL_NULL
@@ -33,18 +33,33 @@ class Model:
         self.mins = [0, 0, 0]
         self.maxs = [0, 0, 0]
 
+        # BSP data
+        self.planes = []
+        self.vertices = []
+        self.edges = []
+        self.nodes = []
+        self.leafs = []
+        self.faces = []
+        self.texinfo = []
+        self.models = []
+        self.lightdata = None
+        self.visdata = None
+        self.brushes = []
+        self.brush_sides = []
 
-# ===== Model Loading =====
+        # Registration
+        self.registration_sequence = 0
+
 
 def Mod_LoadModel(name, crash=True):
     """Load a model by name"""
     try:
-        from ..quake2.files import FS_LoadFile, FS_FOpenFile
+        from ..quake2.files import FS_LoadFile
+        from ..quake2 import qfiles
 
         # Check cache
-        for m in mod_known:
-            if m.name == name:
-                return m
+        if name in mod_known:
+            return mod_known[name]
 
         # Load model data
         data, length = FS_LoadFile(name)
@@ -59,10 +74,8 @@ def Mod_LoadModel(name, crash=True):
         magic = data[0:4]
 
         if magic == b'IBSP':
-            # BSP model
             return Mod_LoadBrush(name, data)
         elif magic == b'IDP2':
-            # MD2 alias model
             return Mod_LoadAlias(name, data)
         else:
             Com_Printf(f"Mod_LoadModel: unknown filetype for {name}\n")
@@ -81,30 +94,46 @@ def Mod_LoadBrush(name, data):
         model = Model(name)
         model.type = MODEL_BRUSH
 
-        # Parse BSP header
-        magic = data[0:4].decode('latin-1')
-        version = int.from_bytes(data[4:8], 'little')
+        # Verify magic and version
+        magic = data[0:4]
+        version = struct.unpack_from('<I', data, 4)[0]
 
-        if magic != 'IBSP' or version != 38:
+        if magic != b'IBSP' or version != 38:
             Com_Printf(f"Mod_LoadBrush: {name} has wrong version\n")
             return None
 
-        # Load lumps
+        # Load all lumps
         lumps = qfiles.load_bsp(name)
-
         if lumps is None:
             return None
 
-        # Get model bounds
-        models = qfiles.read_models(lumps)
-        if models:
-            first_model = models[0]
-            model.mins = first_model['mins']
-            model.maxs = first_model['maxs']
+        # Load BSP data structures
+        model.planes = qfiles.read_planes(lumps)
+        model.vertices = qfiles.read_vertices(lumps)
+        model.nodes = qfiles.read_nodes(lumps)
+        model.leafs = qfiles.read_leafs(lumps)
+        model.faces = qfiles.read_faces(lumps)
+        model.models = qfiles.read_models(lumps)
+        model.visdata = qfiles.read_visibility(lumps)
+        model.lightdata = lumps[qfiles.LUMP_LIGHTMAPS] if len(lumps) > qfiles.LUMP_LIGHTMAPS else None
+        model.brushes = qfiles.read_brushes(lumps)
+        model.brush_sides = qfiles.read_brush_sides(lumps)
 
-        # TODO: Set up rendering structures
+        # Store raw lumps for gl_rsurf to parse edges and texinfo
+        model.lump_edges = lumps[qfiles.LUMP_EDGES] if len(lumps) > qfiles.LUMP_EDGES else b''
+        model.lump_surfedges = lumps[qfiles.LUMP_FACE_EDGES] if len(lumps) > qfiles.LUMP_FACE_EDGES else b''
+        model.lump_texinfo = lumps[qfiles.LUMP_TEXINFO] if len(lumps) > qfiles.LUMP_TEXINFO else b''
 
-        mod_known.append(model)
+        # Set model bounds from first model
+        if model.models:
+            first_model = model.models[0]
+            model.mins = first_model.mins
+            model.maxs = first_model.maxs
+
+        # Calculate radius
+        model.radius = RadiusFromBounds(model.mins, model.maxs)
+
+        mod_known[name] = model
         return model
 
     except Exception as e:
@@ -115,48 +144,154 @@ def Mod_LoadBrush(name, data):
 def Mod_LoadAlias(name, data):
     """Load MD2 (alias) model"""
     try:
+        from . import gl_mesh
+
         model = Model(name)
         model.type = MODEL_ALIAS
 
-        # TODO: Parse MD2 header and frames
+        # Load MD2 data
+        if gl_mesh.Mod_LoadAlias(model, data):
+            mod_known[name] = model
+            return model
 
-        mod_known.append(model)
-        return model
+        return None
 
     except Exception as e:
         Com_Printf(f"Mod_LoadAlias error: {e}\n")
         return None
 
 
+def RadiusFromBounds(mins, maxs):
+    """Calculate radius from bounding box"""
+    import math
+    c = [(mins[i] + maxs[i]) * 0.5 for i in range(3)]
+    d = [maxs[i] - c[i] for i in range(3)]
+    return math.sqrt(d[0]*d[0] + d[1]*d[1] + d[2]*d[2])
+
+
 # ===== Model Queries =====
 
 def Mod_PointInLeaf(p, model):
     """Find leaf containing point in model"""
-    # TODO: Traverse BSP tree to find leaf
-    return None
+    try:
+        if not model or not model.nodes:
+            return None
+
+        # Traverse BSP tree to find leaf
+        node_idx = 0
+
+        while True:
+            if node_idx < 0:
+                # Leaf node (negative index)
+                leaf_idx = (-node_idx - 1)
+                if 0 <= leaf_idx < len(model.leafs):
+                    return model.leafs[leaf_idx]
+                return None
+
+            # Interior node
+            if node_idx >= len(model.nodes):
+                return None
+
+            node = model.nodes[node_idx]
+            if not node or len(node.plane_num) == 0:
+                return None
+
+            plane_idx = node.plane_num if isinstance(node.plane_num, int) else 0
+            if plane_idx >= len(model.planes):
+                return None
+
+            plane = model.planes[plane_idx]
+            if not plane:
+                return None
+
+            # Calculate distance from point to plane
+            normal = plane.normal if hasattr(plane, 'normal') else [0, 0, 0]
+            dist = sum(p[i] * normal[i] for i in range(3)) - (plane.dist if hasattr(plane, 'dist') else 0)
+
+            # Choose front or back child
+            node_idx = node.children[0] if dist >= 0 else node.children[1] if len(node.children) > 1 else node.children[0]
+
+    except Exception as e:
+        Com_Printf(f"Mod_PointInLeaf error: {e}\n")
+        return None
 
 
-def Mod_DecompressVis(_in, model):
-    """Decompress visibility data"""
-    # TODO: Decompress RLE visibility
-    return None
+def Mod_DecompressVis(vis_data, model):
+    """Decompress visibility data for a cluster"""
+    try:
+        if not model.visdata or not vis_data:
+            return None
+
+        from ..quake2 import qfiles
+        return qfiles.decompress_vis(vis_data, 0, len(model.leafs))
+
+    except Exception as e:
+        Com_Printf(f"Mod_DecompressVis error: {e}\n")
+        return None
 
 
 def Mod_ClusterPVS(cluster, model):
-    """Get PVS for cluster"""
-    # TODO: Get cluster visibility
-    return None
+    """Get potentially visible set for cluster"""
+    try:
+        if not model or not model.visdata or cluster < 0:
+            return None
+
+        from ..quake2 import qfiles
+
+        visdata = model.visdata
+        if isinstance(visdata, dict) and 'data' in visdata:
+            vis_data = visdata['data']
+        else:
+            vis_data = visdata
+
+        if not vis_data:
+            return [True] * len(model.leafs)  # Everything visible
+
+        return qfiles.decompress_vis(vis_data, cluster, len(model.leafs))
+
+    except Exception as e:
+        Com_Printf(f"Mod_ClusterPVS error: {e}\n")
+        return None
 
 
-def Mod_Extracts(name):
-    """Extract model name"""
-    # Remove extension
-    if '.' in name:
-        return name[:name.rfind('.')]
-    return name
+# ===== Model Registration =====
+
+def R_BeginRegistration(map_name):
+    """Begin model registration for new map"""
+    global registration_sequence
+    registration_sequence += 1
+
+    try:
+        # Load the world model
+        world_model = Mod_ForName(map_name, True)
+        return world_model
+
+    except Exception as e:
+        Com_Printf(f"R_BeginRegistration error: {e}\n")
+        return None
 
 
-# ===== Rendering =====
+def R_RegisterModel(name):
+    """Register a model for current map"""
+    try:
+        return Mod_ForName(name, False)
+
+    except Exception as e:
+        Com_Printf(f"R_RegisterModel error: {e}\n")
+        return None
+
+
+def R_EndRegistration():
+    """End model registration"""
+    pass
+
+
+def Mod_ForName(name, crash):
+    """Load a model by name (main entry point)"""
+    return Mod_LoadModel(name, crash)
+
+
+# ===== Model Rendering =====
 
 def R_DrawAliasModel(ent):
     """Draw MD2 alias model"""
@@ -178,7 +313,14 @@ def R_DrawBrushModel(ent):
         if not ent.model or ent.model.type != MODEL_BRUSH:
             return
 
-        # TODO: Render brush model surfaces
+        # Push entity transformation
+        glPushMatrix()
+        glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
+
+        if hasattr(gl_rsurf, 'R_DrawBrushModel'):
+            gl_rsurf.R_DrawBrushModel(ent.model)
+
+        glPopMatrix()
 
     except Exception as e:
         Com_Printf(f"R_DrawBrushModel error: {e}\n")
@@ -196,189 +338,16 @@ def R_DrawSpriteModel(ent):
         Com_Printf(f"R_DrawSpriteModel error: {e}\n")
 
 
-# ===== Model Utilities =====
+# ===== Cleanup =====
 
-def Mod_FrameExpires():
-    """Get frame expiration time"""
-    # TODO: Return expiration time
-    return 0
-
-
-def Mod_Hurry():
-    """Mark models for quick loading"""
-    pass
-
-
-@TODO
-def Mod_Extracts_f():
-    pass
-
-
-@TODO
-def Mod_BuildLightmaps():
-    pass
-
-
-@TODO
-def Mod_Init():
-    pass
-
-
-@TODO
-def Mod_Free(mod):
-    pass
-
-
-@TODO
 def Mod_FreeAll():
-    pass
+    """Free all loaded models"""
+    global mod_known
+    mod_known = {}
 
 
-@TODO
-def Mod_AllocBlock(w, h, inuse):
-    pass
-
-
-@TODO
-def Mod_PointInLeaf(p, model):
-    pass
-
-
-@TODO
-def Mod_DecompressVis(_in, model):
-    pass
-
-
-@TODO
-def Mod_ClusterPVS(cluster, model):
-    pass
-
-
-@TODO
-def Mod_Modellist_f():
-    pass
-
-
-@TODO
-def Mod_Init():
-    pass
-
-
-@TODO
-def Mod_ForName(name, crash):
-    pass
-
-
-@TODO
-def Mod_LoadLighting(l):
-    pass
-
-
-@TODO
-def Mod_LoadVisibility(l):
-    pass
-
-
-@TODO
-def Mod_LoadVertexes(l):
-    pass
-
-
-@TODO
-def RadiusFromBounds(mins, maxs):
-    pass
-
-
-@TODO
-def Mod_LoadSubmodels(l):
-    pass
-
-
-@TODO
-def Mod_LoadEdges(l):
-    pass
-
-
-@TODO
-def Mod_LoadTexinfo(l):
-    pass
-
-
-@TODO
-def CalcSurfaceExtents(s):
-    pass
-
-
-@TODO
-def Mod_LoadFaces(l):
-    pass
-
-
-@TODO
-def Mod_SetParent(node, parent):
-    pass
-
-
-@TODO
-def Mod_LoadNodes(l):
-    pass
-
-
-@TODO
-def Mod_LoadLeafs(l):
-    pass
-
-
-@TODO
-def Mod_LoadMarksurfaces(l):
-    pass
-
-
-@TODO
-def Mod_LoadSurfedges(l):
-    pass
-
-
-@TODO
-def Mod_LoadPlanes(l):
-    pass
-
-
-@TODO
-def Mod_LoadBrushModel(_mod, buffer):
-    pass
-
-
-@TODO
-def Mod_LoadAliasModel(_mod, buffer):
-    pass
-
-
-@TODO
-def Mod_LoadSpriteModel(_mod, buffer):
-    pass
-
-
-@TODO
-def R_BeginRegistration(model):
-    pass
-
-
-@TODO
-def R_RegisterModel(name):
-    pass
-
-
-@TODO
-def R_EndRegistration():
-    pass
-
-
-@TODO
-def Mod_Free(_mod):
-    pass
-
-
-@TODO
-def Mod_FreeAll():
-    pass
+def Mod_Free(name):
+    """Free a specific model"""
+    global mod_known
+    if name in mod_known:
+        del mod_known[name]
