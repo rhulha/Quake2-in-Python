@@ -17,16 +17,31 @@ def R_DrawWorld(worldmodel):
         glColor3f(1.0, 1.0, 1.0)
         glDisable(GL_BLEND)
 
+        # Draw test cube to verify rendering
+        glBegin(GL_QUADS)
+        # Front face (green)
+        glColor3f(0.0, 1.0, 0.0)
+        glVertex3f(-50, -50, -200)
+        glVertex3f(50, -50, -200)
+        glVertex3f(50, 50, -200)
+        glVertex3f(-50, 50, -200)
+
+        # Back face (red)
+        glColor3f(1.0, 0.0, 0.0)
+        glVertex3f(-50, -50, -300)
+        glVertex3f(-50, 50, -300)
+        glVertex3f(50, 50, -300)
+        glVertex3f(50, -50, -300)
+        glEnd()
+
         if not worldmodel:
             return
 
         # Render all faces
         if hasattr(worldmodel, 'faces') and worldmodel.faces:
-            face_count = 0
             for face in worldmodel.faces:
                 try:
                     _draw_face(worldmodel, face)
-                    face_count += 1
                 except:
                     pass
 
@@ -43,46 +58,49 @@ def R_DrawBrushModel(model):
 
 
 def _draw_face(model, face):
-    """Draw a single face"""
+    """Draw a single face, return vertex count if rendered"""
     try:
         # Get face geometry
         if not hasattr(face, '__getitem__') or 'num_edges' not in face:
-            return
+            return 0
 
         first_edge = face['first_edge']
         num_edges = face['num_edges']
 
         if num_edges <= 0:
-            return
+            return 0
 
         # Get vertices
         vertices = []
 
-        if hasattr(model, 'lump_surfedges') and hasattr(model, 'lump_edges') and hasattr(model, 'vertices'):
+        try:
             # Parse surfedges and edges on the fly
-            surfedges = _read_surfedges(model.lump_surfedges, first_edge, num_edges)
-            edges = _read_edges(model.lump_edges, surfedges)
+            if hasattr(model, 'lump_surfedges') and hasattr(model, 'lump_edges') and hasattr(model, 'vertices'):
+                surfedges = _read_surfedges(model.lump_surfedges, first_edge, num_edges)
+                edges = _read_edges(model.lump_edges, surfedges)
 
-            for edge in edges:
-                if isinstance(edge, (list, tuple)) and len(edge) >= 1:
-                    v_idx = edge[0]
-                    if isinstance(v_idx, int) and 0 <= v_idx < len(model.vertices):
-                        v = model.vertices[v_idx]
-                        vertices.append([float(v[0]), float(v[1]), float(v[2])])
+                for edge in edges:
+                    if isinstance(edge, (list, tuple)) and len(edge) >= 1:
+                        v_idx = edge[0]
+                        if isinstance(v_idx, int) and 0 <= v_idx < len(model.vertices):
+                            v = model.vertices[v_idx]
+                            vertices.append([float(v[0]), float(v[1]), float(v[2])])
+        except:
+            pass
 
         # Render polygon
         if len(vertices) >= 3:
-            try:
-                glColor3f(0.8, 0.8, 0.8)  # Light gray color
-                glBegin(GL_POLYGON)
-                for v in vertices:
-                    glVertex3f(v[0], v[1], v[2])
-                glEnd()
-            except:
-                pass
+            glColor3f(0.8, 0.8, 0.8)  # Light gray color
+            glBegin(GL_POLYGON)
+            for v in vertices:
+                glVertex3f(v[0], v[1], v[2])
+            glEnd()
+            return len(vertices)
+
+        return 0
 
     except Exception as e:
-        pass
+        return 0
 
 
 def _read_surfedges(lump_data, offset, count):

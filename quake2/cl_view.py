@@ -171,10 +171,13 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
     try:
         from . import sv_main
         from ref_gl import gl_model
-        if sv_main.server.mapname and sv_main.server.mapname != _ViewState.current_mapname:
-            worldmodel = gl_model.Mod_ForName(f"maps/{sv_main.server.mapname}.bsp", False)
+
+        mapname = sv_main.server.mapname if hasattr(sv_main.server, 'mapname') else ""
+        if mapname and mapname != _ViewState.current_mapname:
+            bsp_path = f"maps/{mapname}.bsp"
+            worldmodel = gl_model.Mod_ForName(bsp_path, False)
             _ViewState.worldmodel = worldmodel
-            _ViewState.current_mapname = sv_main.server.mapname
+            _ViewState.current_mapname = mapname
     except Exception as e:
         pass
 

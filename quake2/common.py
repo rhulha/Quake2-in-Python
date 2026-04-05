@@ -825,10 +825,21 @@ def Qcommon_Init(argc, argv):
         except Exception as e:
             Com_Printf(f"Warning: CL_Init failed: {e}\n")
 
-        # Default action: load first map
+        # Process command line arguments (+ commands)
         try:
-            Cbuf_AddText("map q2dm1\n")
+            for arg in com_argv[1:]:
+                if arg.startswith('+'):
+                    Cbuf_AddText(arg[1:] + "\n")
             Cbuf_Execute()
+        except:
+            pass
+
+        # Default action: if no map was loaded, load default map
+        try:
+            from .sv_main import server
+            if not server.mapname:
+                Cbuf_AddText("map q2dm1\n")
+                Cbuf_Execute()
         except:
             pass
 
