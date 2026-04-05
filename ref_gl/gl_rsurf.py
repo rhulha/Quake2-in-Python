@@ -17,21 +17,16 @@ def R_DrawWorld(worldmodel):
         glColor3f(1.0, 1.0, 1.0)
         glDisable(GL_BLEND)
 
-        # Draw test cube to verify rendering
+        # Draw test square (same as working one before)
         glBegin(GL_QUADS)
-        # Front face (green)
-        glColor3f(0.0, 1.0, 0.0)
-        glVertex3f(-50, -50, -200)
-        glVertex3f(50, -50, -200)
-        glVertex3f(50, 50, -200)
-        glVertex3f(-50, 50, -200)
-
-        # Back face (red)
         glColor3f(1.0, 0.0, 0.0)
-        glVertex3f(-50, -50, -300)
-        glVertex3f(-50, 50, -300)
-        glVertex3f(50, 50, -300)
-        glVertex3f(50, -50, -300)
+        glVertex3f(-1, -1, -5)
+        glColor3f(0.0, 1.0, 0.0)
+        glVertex3f(1, -1, -5)
+        glColor3f(0.0, 0.0, 1.0)
+        glVertex3f(1, 1, -5)
+        glColor3f(1.0, 1.0, 0.0)
+        glVertex3f(-1, 1, -5)
         glEnd()
 
         if not worldmodel:
