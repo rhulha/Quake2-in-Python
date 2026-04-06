@@ -4,7 +4,7 @@ Unit tests for qcommon/mathlib.py
 
 import sys
 import os
-import math
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -22,32 +22,20 @@ EPS = 1e-5
 
 # ===== rotate_point_around_vector =====
 
-def test_rotate_point_around_vector_360():
+@pytest.mark.parametrize(
+    'axis, point, degrees, expected',
+    [
+        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], 360.0, [1.0, 0.0, 0.0]),
+        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], 90.0, [0.0, 1.0, 0.0]),
+        ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], 90.0, [0.0, 0.0, 1.0]),
+        ([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], 180.0, [-1.0, 0.0, 0.0]),
+    ],
+)
+def test_rotate_point_around_vector_cases(axis, point, degrees, expected):
     dst = [0.0, 0.0, 0.0]
-    point = [1.0, 0.0, 0.0]
-    axis = [0.0, 0.0, 1.0]
-    rotate_point_around_vector(dst, axis, point, 360.0)
-    assert abs(dst[0] - 1.0) < EPS
-    assert abs(dst[1]) < EPS
-    assert abs(dst[2]) < EPS
-
-
-def test_rotate_point_around_vector_90_z():
-    dst = [0.0, 0.0, 0.0]
-    # Rotate [1,0,0] 90 degrees around Z -> [0,1,0]
-    rotate_point_around_vector(dst, [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], 90.0)
-    assert abs(dst[0]) < EPS
-    assert abs(dst[1] - 1.0) < EPS
-    assert abs(dst[2]) < EPS
-
-
-def test_rotate_point_around_vector_90_x():
-    dst = [0.0, 0.0, 0.0]
-    # Rotate [0,1,0] 90 degrees around X -> [0,0,1]
-    rotate_point_around_vector(dst, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], 90.0)
-    assert abs(dst[0]) < EPS
-    assert abs(dst[1]) < EPS
-    assert abs(dst[2] - 1.0) < EPS
+    rotate_point_around_vector(dst, axis, point, degrees)
+    for i in range(3):
+        assert abs(dst[i] - expected[i]) < EPS
 
 
 def test_rotate_point_around_vector_preserves_length():
@@ -59,15 +47,6 @@ def test_rotate_point_around_vector_preserves_length():
     assert abs(rotated_len - original_len) < EPS
 
 
-def test_rotate_point_around_vector_180():
-    dst = [0.0, 0.0, 0.0]
-    # Rotate [1,0,0] 180 degrees around Z -> [-1,0,0]
-    rotate_point_around_vector(dst, [0.0, 0.0, 1.0], [1.0, 0.0, 0.0], 180.0)
-    assert abs(dst[0] + 1.0) < EPS
-    assert abs(dst[1]) < EPS
-    assert abs(dst[2]) < EPS
-
-
 def test_rotate_point_on_axis_unchanged():
     dst = [0.0, 0.0, 0.0]
     # Rotating a point that lies along the axis should not change it
@@ -77,17 +56,27 @@ def test_rotate_point_on_axis_unchanged():
     assert abs(dst[2] - 5.0) < EPS
 
 
+def test_rotate_point_around_non_unit_axis():
+    dst = [0.0, 0.0, 0.0]
+    # Axis normalization is internal, so [0,0,10] behaves like [0,0,1]
+    rotate_point_around_vector(dst, [0.0, 0.0, 10.0], [1.0, 0.0, 0.0], 90.0)
+    assert abs(dst[0]) < EPS
+    assert abs(dst[1] - 1.0) < EPS
+    assert abs(dst[2]) < EPS
+
+
+def test_rotate_point_around_vector_zero_degrees():
+    dst = [0.0, 0.0, 0.0]
+    point = [2.0, -3.0, 4.0]
+    rotate_point_around_vector(dst, [0.0, 1.0, 0.0], point, 0.0)
+    for i in range(3):
+        assert abs(dst[i] - point[i]) < EPS
+
+
 # ===== perpendicular_vector =====
 
-def test_perpendicular_vector_is_perpendicular_x():
-    src = [1.0, 0.0, 0.0]
-    dst = [0.0, 0.0, 0.0]
-    perpendicular_vector(dst, src)
-    assert abs(q_shared.dot_product(src, dst)) < EPS
-
-
-def test_perpendicular_vector_is_perpendicular_y():
-    src = [0.0, 1.0, 0.0]
+@pytest.mark.parametrize('src', [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+def test_perpendicular_vector_is_perpendicular_axis_aligned(src):
     dst = [0.0, 0.0, 0.0]
     perpendicular_vector(dst, src)
     assert abs(q_shared.dot_product(src, dst)) < EPS
@@ -136,6 +125,20 @@ def test_project_point_on_plane_result_perpendicular_to_normal():
     project_point_on_plane(dst, [5.0, 3.0, 2.0], normal)
     # dst must be perpendicular to normal (dot product = 0)
     assert abs(q_shared.dot_product(dst, normal)) < EPS
+
+
+def test_project_point_on_plane_with_non_unit_normal():
+    dst = [0.0, 0.0, 0.0]
+    # This function assumes the provided normal is unit length.
+    # Using a scaled normal should match normalized-equivalent result if pre-normalized externally.
+    normal = [0.0, 0.0, 5.0]
+    normal_unit = [0.0, 0.0, 1.0]
+    point = [1.0, 2.0, 3.0]
+    out_unit = [0.0, 0.0, 0.0]
+    project_point_on_plane(out_unit, point, normal_unit)
+    project_point_on_plane(dst, point, normal)
+    # Demonstrate behavior difference and lock current implementation semantics.
+    assert dst != out_unit
 
 
 # ===== r_concat_rotations =====
@@ -188,6 +191,20 @@ def test_r_concat_rotations_simple():
     for i in range(3):
         for j in range(3):
             assert abs(out[i][j] - expected[i][j]) < EPS
+
+
+def test_r_concat_rotations_not_commutative():
+    rot_x_90 = [[1.0, 0.0, 0.0],
+                [0.0, 0.0, -1.0],
+                [0.0, 1.0, 0.0]]
+    rot_y_90 = [[0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [-1.0, 0.0, 0.0]]
+    out_xy = _zero3()
+    out_yx = _zero3()
+    r_concat_rotations(rot_x_90, rot_y_90, out_xy)
+    r_concat_rotations(rot_y_90, rot_x_90, out_yx)
+    assert out_xy != out_yx
 
 
 # ===== r_concat_transforms =====
@@ -243,3 +260,17 @@ def test_r_concat_transforms_identity_with_translation():
     for i in range(3):
         for j in range(4):
             assert abs(out[i][j] - t[i][j]) < EPS
+
+
+def test_r_concat_transforms_order_matters_for_translation_and_rotation():
+    rot90z_with_t = [[0.0, -1.0, 0.0, 10.0],
+                     [1.0, 0.0, 0.0, 0.0],
+                     [0.0, 0.0, 1.0, 0.0]]
+    trans_x = [[1.0, 0.0, 0.0, 5.0],
+               [0.0, 1.0, 0.0, 0.0],
+               [0.0, 0.0, 1.0, 0.0]]
+    out_ab = _zero4()
+    out_ba = _zero4()
+    r_concat_transforms(rot90z_with_t, trans_x, out_ab)
+    r_concat_transforms(trans_x, rot90z_with_t, out_ba)
+    assert out_ab != out_ba

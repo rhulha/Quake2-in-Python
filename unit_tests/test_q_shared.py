@@ -4,7 +4,7 @@ Unit tests for qcommon/q_shared.py
 
 import sys
 import os
-import math
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -281,14 +281,23 @@ def test_lerp_angle_wrap_backward():
     assert abs(result - 0.0) < 1.0
 
 
-def test_anglemod_positive():
-    result = anglemod(90.0)
-    assert abs(result - 90.0) < 0.1
+def test_lerp_angle_no_wrap():
+    result = lerp_angle(45.0, 135.0, 0.25)
+    assert abs(result - 67.5) < EPS
 
 
-def test_anglemod_zero():
-    result = anglemod(0.0)
-    assert abs(result) < 0.1
+@pytest.mark.parametrize(
+    'value, expected',
+    [
+        (90.0, 90.0),
+        (0.0, 0.0),
+        (-90.0, 270.0),
+        (450.0, 90.0),
+    ],
+)
+def test_anglemod_cases(value, expected):
+    result = anglemod(value)
+    assert abs(result - expected) < 0.1
 
 
 # ===== Bounding box =====
@@ -321,17 +330,20 @@ def test_add_point_to_bounds_expands():
 
 # ===== Integer math =====
 
-def test_q_log2_powers_of_two():
-    assert q_log2(1) == 0
-    assert q_log2(2) == 1
-    assert q_log2(4) == 2
-    assert q_log2(8) == 3
-    assert q_log2(256) == 8
-
-
-def test_q_log2_zero_or_negative():
-    assert q_log2(0) == 0
-    assert q_log2(-5) == 0
+@pytest.mark.parametrize(
+    'value, expected',
+    [
+        (1, 0),
+        (2, 1),
+        (4, 2),
+        (8, 3),
+        (256, 8),
+        (0, 0),
+        (-5, 0),
+    ],
+)
+def test_q_log2_cases(value, expected):
+    assert q_log2(value) == expected
 
 
 def test_box_on_plane_side_front():
@@ -364,34 +376,60 @@ def test_box_on_plane_side_spanning():
     assert side == 3
 
 
+def test_box_on_plane_side_arbitrary_positive_normal_front():
+    plane = CPlaneT()
+    plane.type = 3  # non-axial plane path
+    plane.normal = [1.0, 1.0, 1.0]
+    plane.dist = 1.0
+    side = box_on_plane_side([2.0, 2.0, 2.0], [4.0, 4.0, 4.0], plane)
+    assert side == 1
+
+
+def test_box_on_plane_side_arbitrary_negative_normal_back():
+    plane = CPlaneT()
+    plane.type = 4  # non-axial plane path
+    plane.normal = [-1.0, -1.0, -1.0]
+    plane.dist = 1.0
+    side = box_on_plane_side([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], plane)
+    assert side == 2
+
+
 # ===== String utilities =====
 
-def test_com_skip_path_with_slash():
-    assert com_skip_path('maps/base1.bsp') == 'base1.bsp'
+@pytest.mark.parametrize(
+    'value, expected',
+    [
+        ('maps/base1.bsp', 'base1.bsp'),
+        ('maps\\base1.bsp', 'base1.bsp'),
+        ('base1.bsp', 'base1.bsp'),
+    ],
+)
+def test_com_skip_path_cases(value, expected):
+    assert com_skip_path(value) == expected
 
 
-def test_com_skip_path_backslash():
-    assert com_skip_path('maps\\base1.bsp') == 'base1.bsp'
+@pytest.mark.parametrize(
+    'value, expected',
+    [
+        ('base1.bsp', 'base1'),
+        ('base1', 'base1'),
+        ('pak0.backup.pak', 'pak0.backup'),
+    ],
+)
+def test_com_strip_extension_cases(value, expected):
+    assert com_strip_extension(value) == expected
 
 
-def test_com_skip_path_no_separator():
-    assert com_skip_path('base1.bsp') == 'base1.bsp'
-
-
-def test_com_strip_extension():
-    assert com_strip_extension('base1.bsp') == 'base1'
-
-
-def test_com_strip_extension_no_ext():
-    assert com_strip_extension('base1') == 'base1'
-
-
-def test_com_file_base():
-    assert com_file_base('maps/base1.bsp') == 'base1'
-
-
-def test_com_file_base_no_path():
-    assert com_file_base('base1.bsp') == 'base1'
+@pytest.mark.parametrize(
+    'value, expected',
+    [
+        ('maps/base1.bsp', 'base1'),
+        ('base1.bsp', 'base1'),
+        ('textures/metal.wall.tga', 'metal.wall'),
+    ],
+)
+def test_com_file_base_cases(value, expected):
+    assert com_file_base(value) == expected
 
 
 def test_com_file_path_with_slash():
@@ -404,17 +442,22 @@ def test_com_file_path_no_path():
     assert result == ''
 
 
-def test_q_stricmp_equal():
-    assert q_stricmp('Hello', 'hello') == 0
-    assert q_stricmp('ABC', 'abc') == 0
+def test_com_file_path_backslash():
+    result = com_file_path('maps\\base1.bsp')
+    assert result == 'maps\\'
 
 
-def test_q_stricmp_less():
-    assert q_stricmp('a', 'b') == -1
-
-
-def test_q_stricmp_greater():
-    assert q_stricmp('b', 'a') == 1
+@pytest.mark.parametrize(
+    'left, right, expected',
+    [
+        ('Hello', 'hello', 0),
+        ('ABC', 'abc', 0),
+        ('a', 'b', -1),
+        ('b', 'a', 1),
+    ],
+)
+def test_q_stricmp_cases(left, right, expected):
+    assert q_stricmp(left, right) == expected
 
 
 # ===== Byte order utilities =====
@@ -441,28 +484,28 @@ def test_little_float():
 
 
 def test_big_float_roundtrip():
-    import struct
     val = 1.0
     swapped = big_float(val)
     # swapping twice should give back the original
     assert abs(big_float(swapped) - val) < EPS
 
 
+def test_big_float_negative_roundtrip():
+    val = -123.25
+    swapped = big_float(val)
+    assert abs(big_float(swapped) - val) < EPS
+
+
 # ===== Exceptions =====
 
-def test_quake_error_is_exception():
-    with __import__('pytest').raises(QuakeError):
-        raise QuakeError('test')
-
-
-def test_quake_fatal_error_is_quake_error():
-    with __import__('pytest').raises(QuakeError):
-        raise QuakeFatalError('fatal')
-
-
-def test_quake_drop_error_is_quake_error():
-    with __import__('pytest').raises(QuakeError):
-        raise QuakeDropError('drop')
+@pytest.mark.parametrize('exc_type, message', [
+    (QuakeError, 'test'),
+    (QuakeFatalError, 'fatal'),
+    (QuakeDropError, 'drop'),
+])
+def test_quake_error_hierarchy(exc_type, message):
+    with pytest.raises(QuakeError):
+        raise exc_type(message)
 
 
 # ===== Constants sanity checks =====
