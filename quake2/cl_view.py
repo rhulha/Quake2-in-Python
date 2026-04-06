@@ -17,6 +17,7 @@ class _ViewState:
     viewangles = [0.0, 0.0, 0.0]
     worldmodel = None
     current_mapname = None
+    spawned = False  # Track if we've set initial spawn position
 
 
 def V_ClearScene():
@@ -155,6 +156,23 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
     if not _ViewState.prepared:
         CL_PrepRefresh()
 
+    # Set initial camera position from player spawn point (only once per map load)
+    if not _ViewState.spawned:
+        try:
+            from . import sv_main
+            if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
+                player = sv_main.server.edicts[0]
+                spawn_origin = None
+                if isinstance(player, dict):
+                    spawn_origin = player.get('origin')
+                elif hasattr(player, 'origin'):
+                    spawn_origin = list(player.origin) if hasattr(player.origin, '__iter__') else None
+                if spawn_origin and any(v != 0 for v in spawn_origin):
+                    _ViewState.vieworg = list(spawn_origin)
+                    _ViewState.spawned = True
+        except Exception:
+            pass
+
     # Local camera angles and movement from input system.
     # Use client-side movement instead of waiting for server updates (single-player camera control)
     try:
@@ -165,10 +183,8 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
         try:
             cmd = cl_input.CL_CreateCmd()
             frametime = cl_input._State.frametime
-            old_vieworg = list(_ViewState.vieworg)
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
 
-            # Position updated - will be used by renderer in refdef
         except Exception as move_err:
             print(f"[MOVEMENT ERROR] {move_err}")
     except Exception as e:
@@ -186,6 +202,7 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
             worldmodel = gl_model.Mod_ForName(bsp_path, False)
             _ViewState.worldmodel = worldmodel
             _ViewState.current_mapname = mapname
+            _ViewState.spawned = False  # Reset so we pick up new spawn point
     except Exception as e:
         pass
 

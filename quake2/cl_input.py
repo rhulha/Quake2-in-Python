@@ -322,21 +322,14 @@ def IN_Frame():
     try:
         import pygame
 
-        events = pygame.event.get()
-        for event in events:
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
 
             elif event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d):
-                    key_name = pygame.key.name(event.key)
-                    print(f">>> KEY '{key_name.upper()}' pressed")
                 _handle_keydown(event.key)
 
             elif event.type == pygame.KEYUP:
-                if event.key in (pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d):
-                    key_name = pygame.key.name(event.key)
-                    print(f"<<< KEY '{key_name.upper()}' released")
                 _handle_keyup(event.key)
 
             elif event.type == pygame.MOUSEMOTION:
