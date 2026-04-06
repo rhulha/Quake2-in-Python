@@ -71,7 +71,7 @@ cl_pitchspeed = 150.0
 cl_run = 0.0
 cl_anglespeedkey = 1.5
 cl_mouse_sensitivity = 0.2
-cl_mouse_invert = False
+cl_mouse_invert = True
 
 sys_frame_time = _now_msec()
 frame_msec = 16
