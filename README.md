@@ -4,9 +4,10 @@ A full port of Quake2 to Python with ModernGL-accelerated 3D rendering. This is 
 
 ## Current Status
 
-✅ **Fully Playable** - Engine loads maps, renders 3D geometry, and runs at 1000+ FPS
+✅ **Fully Playable** - Engine loads maps, renders textured 3D geometry, and runs at 1000+ FPS
 ✅ **Modern GPU Rendering** - ModernGL 3.3 Core Profile with VBO/VAO batch rendering  
 ✅ **BSP Maps** - Complete BSP file parsing and geometry loading
+✅ **Textures** - WAL texture loading and GPU-accelerated rendering with proper wrapping
 ✅ **Input System** - WASD movement, mouse camera control, crosshair rendering
 ✅ **Sound System** - Audio playback (OGG format)
 ✅ **Game Logic** - Entity spawning, gravity, clipping, lighting system
@@ -69,13 +70,15 @@ python main.py +map base1
 ## Architecture
 
 ### Rendering Pipeline (ModernGL)
-1. **Map Load**: BSP file parsed, geometry extracted to VBO
-2. **Batch Building**: Faces grouped by texture, VAO created per batch
-3. **Per Frame**: 
+1. **Map Load**: BSP file parsed, geometry extracted to VBO, textures loaded
+2. **Batch Building**: Faces grouped by texture, VAO created per batch (~57 batches per map)
+3. **Texture Wrapping**: PyOpenGL textures wrapped as ModernGL textures with dimension detection
+4. **Per Frame**: 
    - View matrices computed (numpy)
    - Uniforms uploaded to shader
+   - Textures bound to sampler units
    - One render call per texture batch
-   - Result: ~57 draw calls vs ~5000 with immediate-mode
+   - Result: ~57 draw calls + texturing vs ~5000 immediate-mode calls
 
 ### Shader System
 - **Vertex Shader**: Position transformation, UV mapping
@@ -93,7 +96,6 @@ python main.py +map base1
 
 ## Known Limitations
 
-- **Textures**: WAL files load but ModernGL texture wrapping needs fixing
 - **HUD**: 2D drawing (gl_draw.py) not ported to Core Profile yet
 - **Models**: MD2 alias model rendering in progress
 - **Network**: Single-player only (multiplayer support planned)
