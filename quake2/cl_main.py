@@ -301,6 +301,14 @@ def CL_Frame(msec=0):
         return
 
     cls.frametime = float(msec) / 1000.0 if msec else 0.0
+
+    # Update input system with correct frametime
+    try:
+        from .cl_input import _State
+        _State.frametime = cls.frametime
+    except:
+        pass
+
     CL_CheckForResend()
     CL_ReadPackets()
     CL_SendCommand()

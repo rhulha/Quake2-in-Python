@@ -248,7 +248,7 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     """Apply movement command to camera position"""
     import math
 
-    if not vieworg or not viewangles:
+    if not vieworg or not viewangles or not cmd:
         return vieworg
 
     # Create movement vector in camera local space
@@ -274,26 +274,26 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     up[2] = 1.0
 
     # Apply movement
-    speed = 200.0  # Base speed (pixels/second)
-    move_speed = speed * frametime
+    # cmd.forwardmove/sidemove/upmove are already speed values (0-200)
+    # Scale by frametime to get distance traveled this frame
 
     # Calculate movement in world space
     movement = [0.0, 0.0, 0.0]
 
-    # Forward/backward movement
+    # Forward/backward movement (cmd already has speed, just scale by frametime)
     if cmd.forwardmove != 0:
         for i in range(3):
-            movement[i] += forward[i] * cmd.forwardmove * move_speed
+            movement[i] += forward[i] * cmd.forwardmove * frametime
 
     # Strafe movement
     if cmd.sidemove != 0:
         for i in range(3):
-            movement[i] += right[i] * cmd.sidemove * move_speed
+            movement[i] += right[i] * cmd.sidemove * frametime
 
     # Up/down movement
     if cmd.upmove != 0:
         for i in range(3):
-            movement[i] += up[i] * cmd.upmove * move_speed
+            movement[i] += up[i] * cmd.upmove * frametime
 
     # Apply movement to vieworg
     new_vieworg = [vieworg[i] + movement[i] for i in range(3)]
