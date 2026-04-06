@@ -75,7 +75,8 @@ def _make_view_matrix(vieworg, pitch_deg, yaw_deg, roll_deg):
     T[1, 3] = -vieworg[1]
     T[2, 3] = -vieworg[2]
 
-    return perm @ R @ T
+    # Apply transformations: translate (in Quake space), then permute to GL space, then rotate (in GL space)
+    return R @ perm @ T
 
 
 # ===== Initialization =====
