@@ -409,7 +409,7 @@ def _handle_mousemotion(rel):
 
         _State.viewangles[YAW] -= float(mouse_x) * cl_mouse_sensitivity
         pitch_delta = float(mouse_y) * cl_mouse_sensitivity
-        _State.viewangles[PITCH] += pitch_delta if cl_mouse_invert else -pitch_delta
+        _State.viewangles[PITCH] -= pitch_delta if cl_mouse_invert else pitch_delta
 
         # Keep angles in sensible ranges.
         if _State.viewangles[PITCH] > 89.0:
