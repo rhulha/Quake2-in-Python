@@ -1,12 +1,14 @@
-from wrapper_qpy.decorators import TODO
-from wrapper_qpy.custom_classes import Mutable
+import random as _random
+
 from .reference_import import gi
-from wrapper_qpy.linker import LinkEmptyFunctions
 from shared.QClasses import mmove_t, mframe_t
-
-
-LinkEmptyFunctions(globals(), ["ai_charge", "ai_run"])
-
+from shared.QEnums import movetype_t, solid_t, MONSTER_AI_FLAGS
+from shared.QConstants import (
+    MZ2_FLYER_BLASTER_1,
+    MZ2_FLYER_BLASTER_2,
+    EF_HYPERBLASTER,
+)
+from .global_vars import level, skill
 
 ACTION_nothing = 0
 ACTION_attack1 = 1
@@ -168,141 +170,389 @@ FRAME_pain304 = 150
 
 MODEL_SCALE = 1.000000
 
-nextmove = 0
+AI_STAND_GROUND = MONSTER_AI_FLAGS.AI_STAND_GROUND.value
+nextmove = ACTION_nothing
+
+_sound_sight = 0
+_sound_idle = 0
+_sound_pain1 = 0
+_sound_pain2 = 0
+_sound_slash = 0
+_sound_sproing = 0
+_sound_die = 0
 
 
-def flyer_sight():
-    return
+def _chan_voice():
+    from shared.QEnums import SOUND_CHANNELS
+    return SOUND_CHANNELS.CHAN_VOICE.value
 
 
-def flyer_idle():
-    return
+def _chan_weapon():
+    from shared.QEnums import SOUND_CHANNELS
+    return SOUND_CHANNELS.CHAN_WEAPON.value
 
 
-def flyer_pop_blades():
-    return
+def _attn_norm():
+    from shared.QEnums import SOUND_ATTN_VALUES
+    return SOUND_ATTN_VALUES.ATTN_NORM.value
 
 
-flyer_frames_run = [mframe_t(ai_run, 0, None) for _ in range(0, 45)]
+def _attn_idle():
+    from shared.QEnums import SOUND_ATTN_VALUES
+    return SOUND_ATTN_VALUES.ATTN_IDLE.value
 
+
+def _ai_stand():
+    from .g_ai import ai_stand
+    return ai_stand
+
+
+def _ai_walk():
+    from .g_ai import ai_walk
+    return ai_walk
+
+
+def _ai_run():
+    from .g_ai import ai_run
+    return ai_run
+
+
+def _ai_move():
+    from .g_ai import ai_move
+    return ai_move
+
+
+def _ai_charge():
+    from .g_ai import ai_charge
+    return ai_charge
+
+
+def flyer_sight(self, other):
+    if gi.sound:
+        gi.sound(self, _chan_voice(), _sound_sight, 1, _attn_norm(), 0)
+
+
+def flyer_idle(self):
+    if gi.sound:
+        gi.sound(self, _chan_voice(), _sound_idle, 1, _attn_idle(), 0)
+
+
+def flyer_pop_blades(self):
+    if gi.sound:
+        gi.sound(self, _chan_voice(), _sound_sproing, 1, _attn_norm(), 0)
+
+
+def flyer_run(self):
+    if self.monsterinfo.aiflags & AI_STAND_GROUND:
+        self.monsterinfo.currentmove = flyer_move_stand
+    else:
+        self.monsterinfo.currentmove = flyer_move_run
+
+
+def flyer_walk(self):
+    self.monsterinfo.currentmove = flyer_move_walk
+
+
+def flyer_stand(self):
+    self.monsterinfo.currentmove = flyer_move_stand
+
+
+def flyer_stop(self):
+    self.monsterinfo.currentmove = flyer_move_stop
+
+
+def flyer_start(self):
+    self.monsterinfo.currentmove = flyer_move_start
+
+
+def flyer_fire(self, flash_number):
+    from .q_shared import AngleVectors
+    from .g_utils import G_ProjectSource
+    from .m_flash import monster_flash_offset
+    from .g_monster import monster_fire_blaster
+
+    start = [0.0, 0.0, 0.0]
+    forward = [0.0, 0.0, 0.0]
+    right = [0.0, 0.0, 0.0]
+    end = [0.0, 0.0, 0.0]
+    _dir = [0.0, 0.0, 0.0]
+
+    if self.s.frame in (FRAME_attak204, FRAME_attak207, FRAME_attak210):
+        effect = EF_HYPERBLASTER
+    else:
+        effect = 0
+
+    AngleVectors(self.s.angles, forward, right, None)
+    G_ProjectSource(self.s.origin, monster_flash_offset[flash_number], forward, right, start)
+
+    if self.enemy:
+        end[0] = self.enemy.s.origin[0]
+        end[1] = self.enemy.s.origin[1]
+        end[2] = self.enemy.s.origin[2] + self.enemy.viewheight
+    _dir[0] = end[0] - start[0]
+    _dir[1] = end[1] - start[1]
+    _dir[2] = end[2] - start[2]
+
+    monster_fire_blaster(self, start, _dir, 1, 1000, flash_number, effect)
+
+
+def flyer_fireleft(self):
+    flyer_fire(self, MZ2_FLYER_BLASTER_1)
+
+
+def flyer_fireright(self):
+    flyer_fire(self, MZ2_FLYER_BLASTER_2)
+
+
+def flyer_slash_left(self):
+    from .g_ai import MELEE_DISTANCE
+    from .g_weapon import fire_hit
+
+    aim = [MELEE_DISTANCE, self.mins[0], 0]
+    fire_hit(self, aim, 5, 0)
+    if gi.sound:
+        gi.sound(self, _chan_weapon(), _sound_slash, 1, _attn_norm(), 0)
+
+
+def flyer_slash_right(self):
+    from .g_ai import MELEE_DISTANCE
+    from .g_weapon import fire_hit
+
+    aim = [MELEE_DISTANCE, self.maxs[0], 0]
+    fire_hit(self, aim, 5, 0)
+    if gi.sound:
+        gi.sound(self, _chan_weapon(), _sound_slash, 1, _attn_norm(), 0)
+
+
+def flyer_loop_melee(self):
+    self.monsterinfo.currentmove = flyer_move_loop_melee
+
+
+def flyer_attack(self):
+    self.monsterinfo.currentmove = flyer_move_attack2
+
+
+def flyer_setstart(self):
+    global nextmove
+    nextmove = ACTION_run
+    self.monsterinfo.currentmove = flyer_move_start
+
+
+def flyer_nextmove(self):
+    if nextmove == ACTION_attack1:
+        self.monsterinfo.currentmove = flyer_move_start_melee
+    elif nextmove == ACTION_attack2:
+        self.monsterinfo.currentmove = flyer_move_attack2
+    elif nextmove == ACTION_run:
+        self.monsterinfo.currentmove = flyer_move_run
+
+
+def flyer_melee(self):
+    self.monsterinfo.currentmove = flyer_move_start_melee
+
+
+def flyer_check_melee(self):
+    from .g_ai import range as ai_range, RANGE_MELEE
+    if self.enemy and ai_range(self, self.enemy) == RANGE_MELEE:
+        if _random.random() <= 0.8:
+            self.monsterinfo.currentmove = flyer_move_loop_melee
+        else:
+            self.monsterinfo.currentmove = flyer_move_end_melee
+    else:
+        self.monsterinfo.currentmove = flyer_move_end_melee
+
+
+def flyer_pain(self, other, kick, damage):
+    if self.health < (self.max_health / 2):
+        self.s.skinnum = 1
+
+    if level.time < self.pain_debounce_time:
+        return
+
+    self.pain_debounce_time = level.time + 3
+    if skill and skill.value == 3:
+        return
+
+    n = _random.randint(0, 2)
+    if n == 0:
+        if gi.sound:
+            gi.sound(self, _chan_voice(), _sound_pain1, 1, _attn_norm(), 0)
+        self.monsterinfo.currentmove = flyer_move_pain1
+    elif n == 1:
+        if gi.sound:
+            gi.sound(self, _chan_voice(), _sound_pain2, 1, _attn_norm(), 0)
+        self.monsterinfo.currentmove = flyer_move_pain2
+    else:
+        if gi.sound:
+            gi.sound(self, _chan_voice(), _sound_pain1, 1, _attn_norm(), 0)
+        self.monsterinfo.currentmove = flyer_move_pain3
+
+
+def flyer_die(self, inflictor, attacker, damage, point):
+    from .g_misc import BecomeExplosion1
+    if gi.sound:
+        gi.sound(self, _chan_voice(), _sound_die, 1, _attn_norm(), 0)
+    BecomeExplosion1(self)
+
+
+flyer_frames_stand = [
+    mframe_t(lambda s, d: _ai_stand()(s, d), 0, None)
+    for _ in range(45)
+]
+flyer_move_stand = mmove_t(FRAME_stand01, FRAME_stand45, flyer_frames_stand, None)
+
+flyer_frames_walk = [
+    mframe_t(lambda s, d: _ai_walk()(s, d), 5, None)
+    for _ in range(45)
+]
+flyer_move_walk = mmove_t(FRAME_stand01, FRAME_stand45, flyer_frames_walk, None)
+
+flyer_frames_run = [
+    mframe_t(lambda s, d: _ai_run()(s, d), 10, None)
+    for _ in range(45)
+]
 flyer_move_run = mmove_t(FRAME_stand01, FRAME_stand45, flyer_frames_run, None)
 
-
-def flyer_run():
-    return
-
-
-def flyer_walk():
-    return
-
-
-def flyer_stand():
-    return
-
-
-def flyer_stop():
-    return
-
-
-def flyer_start():
-    return
-
-
-def flyer_fire():
-    return
-
-
-def flyer_fireleft():
-    return
-
-
-def flyer_fireright():
-    return
-
-
-flyer_frames_attack2 = [
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, -10, flyer_fireleft),
-    mframe_t(ai_charge, -10, flyer_fireright),
-    mframe_t(ai_charge, -10, flyer_fireleft),
-    mframe_t(ai_charge, -10, flyer_fireright),
-    mframe_t(ai_charge, -10, flyer_fireleft),
-    mframe_t(ai_charge, -10, flyer_fireright),
-    mframe_t(ai_charge, -10, flyer_fireleft),
-    mframe_t(ai_charge, -10, flyer_fireright),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None)
+flyer_frames_start = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, flyer_nextmove if i == 5 else None)
+    for i in range(6)
 ]
+flyer_move_start = mmove_t(FRAME_start01, FRAME_start06, flyer_frames_start, None)
 
+flyer_frames_stop = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, flyer_nextmove if i == 6 else None)
+    for i in range(7)
+]
+flyer_move_stop = mmove_t(FRAME_stop01, FRAME_stop07, flyer_frames_stop, None)
+
+flyer_frames_rollright = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(9)
+]
+flyer_move_rollright = mmove_t(FRAME_rollr01, FRAME_rollr09, flyer_frames_rollright, None)
+
+flyer_frames_rollleft = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(9)
+]
+flyer_move_rollleft = mmove_t(FRAME_rollf01, FRAME_rollf09, flyer_frames_rollleft, None)
+
+flyer_frames_pain3 = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(4)
+]
+flyer_move_pain3 = mmove_t(FRAME_pain301, FRAME_pain304, flyer_frames_pain3, flyer_run)
+
+flyer_frames_pain2 = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(4)
+]
+flyer_move_pain2 = mmove_t(FRAME_pain201, FRAME_pain204, flyer_frames_pain2, flyer_run)
+
+flyer_frames_pain1 = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(9)
+]
+flyer_move_pain1 = mmove_t(FRAME_pain101, FRAME_pain109, flyer_frames_pain1, flyer_run)
+
+flyer_frames_defense = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(6)
+]
+flyer_move_defense = mmove_t(FRAME_defens01, FRAME_defens06, flyer_frames_defense, None)
+
+flyer_frames_bankright = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(7)
+]
+flyer_move_bankright = mmove_t(FRAME_bankr01, FRAME_bankr07, flyer_frames_bankright, None)
+
+flyer_frames_bankleft = [
+    mframe_t(lambda s, d: _ai_move()(s, d), 0, None)
+    for _ in range(7)
+]
+flyer_move_bankleft = mmove_t(FRAME_bankl01, FRAME_bankl07, flyer_frames_bankleft, None)
+
+_attack2_d = [0, 0, 0, -10, -10, -10, -10, -10, -10, -10, -10, 0, 0, 0, 0, 0, 0]
+_attack2_cb = [
+    None, None, None,
+    flyer_fireleft, flyer_fireright, flyer_fireleft, flyer_fireright,
+    flyer_fireleft, flyer_fireright, flyer_fireleft, flyer_fireright,
+    None, None, None, None, None, None,
+]
+flyer_frames_attack2 = [
+    mframe_t(lambda s, d: _ai_charge()(s, d), _attack2_d[i], _attack2_cb[i])
+    for i in range(17)
+]
 flyer_move_attack2 = mmove_t(FRAME_attak201, FRAME_attak217, flyer_frames_attack2, flyer_run)
 
-
-def flyer_slash_left():
-    return
-
-
-def flyer_frames_start_melee():
-    return
-
-
-def flyer_loop_melee():
-    return
-
-
+_start_melee_cb = [flyer_pop_blades, None, None, None, None, None]
 flyer_frames_start_melee = [
-    mframe_t(ai_charge, 0, flyer_pop_blades),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None),
-    mframe_t(ai_charge, 0, None)
+    mframe_t(lambda s, d: _ai_charge()(s, d), 0, _start_melee_cb[i])
+    for i in range(6)
 ]
-
 flyer_move_start_melee = mmove_t(FRAME_attak101, FRAME_attak106, flyer_frames_start_melee, flyer_loop_melee)
 
+flyer_frames_end_melee = [
+    mframe_t(lambda s, d: _ai_charge()(s, d), 0, None)
+    for _ in range(3)
+]
+flyer_move_end_melee = mmove_t(FRAME_attak119, FRAME_attak121, flyer_frames_end_melee, flyer_run)
 
-def flyer_attack():
-    return
-
-
-def flyer_setstart():
-    return
-
-
-def flyer_nextmove(_self):
-    if nextmove == ACTION_attack1:
-        _self.monsterinfo.currentmove = flyer_move_start_melee
-    elif nextmove == ACTION_attack2:
-        _self.monsterinfo.currentmove = flyer_move_attack2
-    elif nextmove == ACTION_run:
-        _self.monsterinfo.currentmove = flyer_move_run
+_loop_melee_cb = [None, None, flyer_slash_left, None, None, None, None, flyer_slash_right, None, None, None, None]
+flyer_frames_loop_melee = [
+    mframe_t(lambda s, d: _ai_charge()(s, d), 0, _loop_melee_cb[i])
+    for i in range(12)
+]
+flyer_move_loop_melee = mmove_t(FRAME_attak107, FRAME_attak118, flyer_frames_loop_melee, flyer_check_melee)
 
 
-def flyer_melee():
-    return
+def SP_monster_flyer(self):
+    global _sound_sight, _sound_idle, _sound_pain1, _sound_pain2
+    global _sound_slash, _sound_sproing, _sound_die
 
+    from .g_monster import flymonster_start
 
-def flyer_check_melee():
-    return
+    if not gi.soundindex:
+        return
 
+    _sound_sight = gi.soundindex("flyer/flysght1.wav")
+    _sound_idle = gi.soundindex("flyer/flysrch1.wav")
+    _sound_pain1 = gi.soundindex("flyer/flypain1.wav")
+    _sound_pain2 = gi.soundindex("flyer/flypain2.wav")
+    _sound_slash = gi.soundindex("flyer/flyatck2.wav")
+    _sound_sproing = gi.soundindex("flyer/flyatck1.wav")
+    _sound_die = gi.soundindex("flyer/flydeth1.wav")
 
-def flyer_pain():
-    return
+    gi.soundindex("flyer/flyatck3.wav")
 
+    if gi.modelindex:
+        self.s.modelindex = gi.modelindex("models/monsters/flyer/tris.md2")
 
-def flyer_die():
-    return
+    self.mins[:] = [-16.0, -16.0, -24.0]
+    self.maxs[:] = [16.0, 16.0, 32.0]
+    self.movetype = movetype_t.MOVETYPE_STEP.value
+    self.solid = solid_t.SOLID_BBOX.value
+    self.s.sound = gi.soundindex("flyer/flyidle1.wav")
 
+    self.health = 50
+    self.mass = 50
 
-def SP_monster_flyer():
-    return
+    self.pain = flyer_pain
+    self.die = flyer_die
 
+    self.monsterinfo.stand = flyer_stand
+    self.monsterinfo.walk = flyer_walk
+    self.monsterinfo.run = flyer_run
+    self.monsterinfo.attack = flyer_attack
+    self.monsterinfo.melee = flyer_melee
+    self.monsterinfo.sight = flyer_sight
+    self.monsterinfo.idle = flyer_idle
+    self.monsterinfo.currentmove = flyer_move_stand
+    self.monsterinfo.scale = MODEL_SCALE
 
-from game.g_ai import ai_charge, ai_run
+    if gi.linkentity:
+        gi.linkentity(self)
+
+    flymonster_start(self)
 
