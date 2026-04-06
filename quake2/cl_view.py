@@ -178,11 +178,20 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
         try:
             cmd = cl_input.CL_CreateCmd()
             frametime = cl_input._State.frametime
+            old_vieworg = list(_ViewState.vieworg)
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
+
+            # Debug: Show movement if any keys are pressed
+            if cmd.forwardmove != 0 or cmd.sidemove != 0 or cmd.upmove != 0:
+                fwd = f"FWD={cmd.forwardmove:.0f}" if cmd.forwardmove > 0 else f"BACK={-cmd.forwardmove:.0f}" if cmd.forwardmove < 0 else ""
+                side = f"LEFT={-cmd.sidemove:.0f}" if cmd.sidemove < 0 else f"RIGHT={cmd.sidemove:.0f}" if cmd.sidemove > 0 else ""
+                up = f"UP={cmd.upmove:.0f}" if cmd.upmove > 0 else f"DOWN={-cmd.upmove:.0f}" if cmd.upmove < 0 else ""
+                movement_str = " ".join(filter(None, [fwd, side, up]))
+                print(f"*** MOVING: {movement_str}  pos: {[f'{x:.1f}' for x in old_vieworg]} -> {[f'{x:.1f}' for x in _ViewState.vieworg]}")
         except Exception as move_err:
-            pass
-    except Exception:
-        pass
+            print(f"[MOVEMENT ERROR] {move_err}")
+    except Exception as e:
+        print(f"[INPUT ERROR] {e}")
 
     # Load world model if map changed
     worldmodel = _ViewState.worldmodel
