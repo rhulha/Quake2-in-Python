@@ -244,6 +244,62 @@ def IN_CenterView():
     _State.viewangles[PITCH] = -float(_State.frame_player_delta_angles[PITCH])
 
 
+def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
+    """Apply movement command to camera position"""
+    import math
+
+    if not vieworg or not viewangles:
+        return vieworg
+
+    # Create movement vector in camera local space
+    forward = [0.0, 0.0, 0.0]
+    right = [0.0, 0.0, 0.0]
+    up = [0.0, 0.0, 0.0]
+
+    # Calculate forward and right vectors from yaw angle
+    yaw_rad = math.radians(viewangles[YAW])
+    pitch_rad = math.radians(viewangles[PITCH])
+
+    # Forward vector (affected by pitch)
+    forward[0] = math.cos(yaw_rad) * math.cos(pitch_rad)
+    forward[1] = math.sin(yaw_rad) * math.cos(pitch_rad)
+    forward[2] = -math.sin(pitch_rad)
+
+    # Right vector (perpendicular to forward in horizontal plane)
+    right[0] = math.sin(yaw_rad)
+    right[1] = -math.cos(yaw_rad)
+    right[2] = 0.0
+
+    # Up vector (always vertical)
+    up[2] = 1.0
+
+    # Apply movement
+    speed = 200.0  # Base speed (pixels/second)
+    move_speed = speed * frametime
+
+    # Calculate movement in world space
+    movement = [0.0, 0.0, 0.0]
+
+    # Forward/backward movement
+    if cmd.forwardmove != 0:
+        for i in range(3):
+            movement[i] += forward[i] * cmd.forwardmove * move_speed
+
+    # Strafe movement
+    if cmd.sidemove != 0:
+        for i in range(3):
+            movement[i] += right[i] * cmd.sidemove * move_speed
+
+    # Up/down movement
+    if cmd.upmove != 0:
+        for i in range(3):
+            movement[i] += up[i] * cmd.upmove * move_speed
+
+    # Apply movement to vieworg
+    new_vieworg = [vieworg[i] + movement[i] for i in range(3)]
+    return new_vieworg
+
+
 def CL_InitInput():
     return True
 

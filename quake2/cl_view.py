@@ -173,6 +173,14 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
     try:
         from . import cl_input
         _ViewState.viewangles = list(cl_input._State.viewangles)
+
+        # Apply WASD movement to camera position
+        try:
+            cmd = cl_input.CL_CreateCmd()
+            frametime = cl_input._State.frametime
+            _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
+        except Exception as move_err:
+            pass
     except Exception:
         pass
 
