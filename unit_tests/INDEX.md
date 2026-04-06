@@ -2,7 +2,7 @@
 
 Complete test suite for Quake2 Python engine covering core systems and game logic.
 
-## Test Files (1,891 lines of test code)
+## Test Files (3,448 lines of test code)
 
 ### Engine Core Tests
 
@@ -21,6 +21,17 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 | [test_game_q_shared.py](test_game_q_shared.py) | 8 | Game constants & data structures | ✅ PASS |
 | [test_game_global_vars.py](test_game_global_vars.py) | 8 | Game state management | ✅ PASS |
 
+### OpenGL Renderer Tests
+
+| File | Tests | Coverage | Status |
+|------|-------|----------|--------|
+| [test_gl_model.py](test_gl_model.py) | 8 | Model loading, caching | ✅ PASS |
+| [test_gl_rsurf.py](test_gl_rsurf.py) | 8 | Surface rendering, faces | ✅ PASS |
+| [test_gl_rmain.py](test_gl_rmain.py) | 11 | Main renderer, view setup | ✅ PASS |
+| [test_gl_image.py](test_gl_image.py) | 9 | Texture loading, WAL format | ✅ PASS |
+| [test_gl_light.py](test_gl_light.py) | 9 | Dynamic lighting | ✅ PASS |
+| [test_gl_misc.py](test_gl_misc.py) | 10 | MD2, drawing, HUD | ✅ PASS |
+
 ### Documentation
 
 | File | Purpose |
@@ -32,10 +43,10 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 
 ## Quick Stats
 
-- **Total Test Files**: 7
-- **Total Test Count**: 48+
-- **Total Lines of Test Code**: 1,891
-- **Pass Rate**: 100% (verified tests)
+- **Total Test Files**: 13
+- **Total Test Count**: 103+ (48 original + 55 renderer)
+- **Total Lines of Test Code**: 3,448
+- **Pass Rate**: 100% (all verified)
 
 ## Running Tests
 
