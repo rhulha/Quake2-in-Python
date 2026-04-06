@@ -1,4 +1,5 @@
 import time
+import pygame
 from dataclasses import dataclass, field
 
 
@@ -320,8 +321,6 @@ def CL_SendCmd():
 def IN_Frame():
     """Process input events from pygame"""
     try:
-        import pygame
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -411,8 +410,6 @@ def _handle_keydown(key):
     elif key == pygame.K_F12:
         try:
             from ref_gl.gl_screenshot import take_screenshot
-            # Get current window size from pygame
-            import pygame
             surface = pygame.display.get_surface()
             if surface:
                 w, h = surface.get_size()
