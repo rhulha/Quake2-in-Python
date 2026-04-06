@@ -222,9 +222,24 @@ def SV_Map_f():
             'armor': 0,
             'solid': 1,
             'svflags': 0,
+            'client': {
+                'buttons': 0,
+                'oldbuttons': 0,
+                'v_angle': [0.0, 0.0, 0.0],
+                'pers': {},
+                'resp': {},
+            }
         }
         server.edicts[0] = player
         server.num_edicts = max(server.num_edicts, 1)
+
+        try:
+            from game.g_main import game
+            while len(game.entities) <= 1:
+                game.entities.append(None)
+            game.entities[1] = player
+        except:
+            pass
         Com_Printf(f"Player spawned at {player_spawn}\n")
 
         server.state = 2  # Running

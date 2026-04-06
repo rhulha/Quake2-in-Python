@@ -3,11 +3,17 @@ gl_rmain.py - OpenGL main renderer
 Handles initialization, frame rendering, and view setup
 """
 
+import sys
+import os
 import math
 from OpenGL.GL import *
 from OpenGL.GL import glFrustum as GLFrustum
 from wrapper_qpy.decorators import va_args, TODO
 from wrapper_qpy.custom_classes import Mutable
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 # ===== Global State =====
 
@@ -26,7 +32,7 @@ def R_Init():
         try:
             from quake2.common import Com_Printf, Cvar_Get
         except ImportError:
-            from ..quake2.common import Com_Printf, Cvar_Get
+            from quake2.common import Com_Printf, Cvar_Get
 
         Com_Printf("R_Init()\n")
 
@@ -54,7 +60,7 @@ def R_Shutdown():
     """Shutdown renderer"""
     try:
         from . import glw_imp
-        from ..quake2.common import Com_Printf
+        from quake2.common import Com_Printf
 
         Com_Printf("R_Shutdown()\n")
         glw_imp.GLimp_Shutdown()
@@ -341,7 +347,7 @@ def R_BuildLightMaps():
 # ===== Import after function definitions =====
 
 try:
-    from ..quake2.common import Com_Printf
+    from quake2.common import Com_Printf
 except:
     def Com_Printf(msg):
         print(msg)

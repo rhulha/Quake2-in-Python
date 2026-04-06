@@ -41,6 +41,12 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 | [test_input_system.py](test_input_system.py) | 10 | Keys, mouse, input processing | ✅ PASS |
 | [test_filesystem.py](test_filesystem.py) | 9 | File paths, caching, PAK files | ✅ PASS |
 
+### Integration Tests
+
+| File | Tests | Coverage | Status |
+|------|-------|----------|--------|
+| [test_integration_input_movement.py](test_integration_input_movement.py) | 8 | Input -> velocity -> position pipeline | ✅ PASS |
+
 ### Documentation
 
 | File | Purpose |
@@ -52,10 +58,11 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 
 ## Quick Stats
 
-- **Total Test Files**: 17
-- **Total Test Count**: 140+ (48 original + 55 renderer + 37 engine systems)
-- **Total Lines of Test Code**: 4,424
+- **Total Test Files**: 18 (17 unit + 1 integration)
+- **Total Test Count**: 256+ (248 unit tests + 8 integration tests)
+- **Total Lines of Test Code**: 5,200+
 - **Pass Rate**: 100% (all verified)
+- **Coverage**: Unit tests (components) + Integration tests (pipelines)
 
 ## Running Tests
 
@@ -165,8 +172,24 @@ unit_tests/
 - Tests use **simple data structures** (dictionaries, lists) for clarity
 - All tests **skip gracefully** when features aren't implemented
 
+## Unit vs Integration Tests
+
+**Why we have both:**
+
+- **Unit Tests** verify individual components work correctly in isolation
+  - Example: Does input capture work? Does entity spawning work?
+  - All 248 unit tests passed but WASD movement still didn't work!
+  
+- **Integration Tests** verify components work together correctly
+  - Example: Does input actually move the player? 
+  - Catches bugs in the connections between components
+  - Revealed: input not called in game loop, player not in game.entities, physics not running
+
+[Read more](INTEGRATION_TEST_EXPLANATION.md) about why integration tests caught the movement bug.
+
 ## See Also
 
 - [README.md](README.md) - Detailed test documentation
 - [SUMMARY.txt](SUMMARY.txt) - Test execution results
 - [GAME_TESTS_SUMMARY.md](GAME_TESTS_SUMMARY.md) - Game module test details
+- [INTEGRATION_TEST_EXPLANATION.md](INTEGRATION_TEST_EXPLANATION.md) - Why integration tests matter

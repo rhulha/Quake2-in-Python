@@ -155,7 +155,8 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
     if not _ViewState.prepared:
         CL_PrepRefresh()
 
-    # Get player viewpoint from server state (for single-player)
+    # Get player position from server state (for single-player).
+    # View angles come from local input state so mouse look is responsive.
     try:
         from . import sv_main
         if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
@@ -163,11 +164,16 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
             if player:
                 if isinstance(player, dict):
                     _ViewState.vieworg = player.get('origin', [0, 0, 0])
-                    _ViewState.viewangles = player.get('angles', [0, 0, 0])
                 elif hasattr(player, 'origin') and hasattr(player, 'angles'):
                     _ViewState.vieworg = list(player.origin) if hasattr(player.origin, '__iter__') else [0, 0, 0]
-                    _ViewState.viewangles = list(player.angles) if hasattr(player.angles, '__iter__') else [0, 0, 0]
     except Exception as e:
+        pass
+
+    # Local camera angles from input system.
+    try:
+        from . import cl_input
+        _ViewState.viewangles = list(cl_input._State.viewangles)
+    except Exception:
         pass
 
     # Load world model if map changed

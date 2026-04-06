@@ -3,11 +3,17 @@ gl_mesh.py - MD2 model mesh rendering
 Handles vertex interpolation and frame animation for alias models
 """
 
+import sys
+import os
 import struct
 import math
 import numpy as np
 from OpenGL.GL import *
 from wrapper_qpy.linker import LinkEmptyFunctions
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 LinkEmptyFunctions(globals(), ["Com_Printf"])
 
@@ -65,7 +71,7 @@ class MD2Vertex:
 def Load_MD2(filename):
     """Load MD2 model file"""
     try:
-        from ..quake2.files import FS_LoadFile
+        from quake2.files import FS_LoadFile
 
         data, length = FS_LoadFile(filename)
         if data is None or length < 68:

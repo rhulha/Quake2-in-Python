@@ -3,9 +3,15 @@ gl_model.py - Model loading and rendering
 Handles BSP, MD2 (alias), and sprite model types
 """
 
+import sys
+import os
 import struct
 from OpenGL.GL import *
 from wrapper_qpy.linker import LinkEmptyFunctions
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 LinkEmptyFunctions(globals(), ["Com_Printf"])
 
@@ -230,7 +236,7 @@ def Mod_DecompressVis(vis_data, model):
         if not model.visdata or not vis_data:
             return None
 
-        from ..quake2 import qfiles
+        from quake2 import qfiles
         return qfiles.decompress_vis(vis_data, 0, len(model.leafs))
 
     except Exception as e:
@@ -244,7 +250,7 @@ def Mod_ClusterPVS(cluster, model):
         if not model or not model.visdata or cluster < 0:
             return None
 
-        from ..quake2 import qfiles
+        from quake2 import qfiles
 
         visdata = model.visdata
         if isinstance(visdata, dict) and 'data' in visdata:

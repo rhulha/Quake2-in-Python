@@ -8,3 +8,36 @@ C:\BackupYes\Coding\Projects\Private\Games\FirstPersonShooter\BSPParserPythonQ2
 
 Here are all the game resources unpacked: C:\Action\id\q2unpacked
 
+ What's Missing for Playability:
+
+Keyboard input - WASD movement not wired up
+Mouse look - Can't control camera with mouse
+Collision detection - Player walks through walls
+Textures - Geometry is solid colors (no wall textures)
+Weapons/Combat - No weapon firing or enemies
+HUD - No health/ammo display
+
+---
+
+
+BSP textured surface pipeline is still mostly stubbed in gl_rsurf.py:229:
+R_MarkLeaves
+R_SetFrustum
+DrawTextureChains
+R_DrawAlphaSurfaces
+GL_SubdivideSurface
+R_BuildLightMap
+R_BlendLightmaps
+GL_RenderLightmappedPoly
+DrawSkyBox
+R_RecursiveWorldNode
+RecursiveLightPoint
+Some frame-level render features are also stubs in gl_rmain.py:257:
+sprite rendering
+particles
+poly blend
+several TODO renderer hooks
+Image loading path is partially incomplete too (for example TGA TODO) in gl_image.py:237.
+So: nothing is “wrong” with your setup; the renderer is still in a debug/unfinished state.
+If you want, I can help you implement the first practical step to get past green: texture coordinates + texture bind in _draw_face, then DrawTextureChains for BSP textures.
+

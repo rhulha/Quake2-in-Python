@@ -370,23 +370,40 @@ def PrintPmove(pmove):
 
 
 def ClientThink(ent, ucmd):
-    if not ent or not ent.client:
+    if not ent:
         return
-    ent.client.oldbuttons = ent.client.buttons
-    ent.client.buttons = getattr(ucmd, "buttons", 0)
 
-    if ent.health <= 0:
+    is_dict = isinstance(ent, dict)
+    client = ent.get('client') if is_dict else getattr(ent, 'client', None)
+    if not client:
+        return
+
+    if is_dict:
+        ent['client']['oldbuttons'] = ent['client'].get('buttons', 0)
+        ent['client']['buttons'] = getattr(ucmd, "buttons", 0)
+    else:
+        ent.client.oldbuttons = ent.client.buttons
+        ent.client.buttons = getattr(ucmd, "buttons", 0)
+
+    health = ent.get('health', 100) if is_dict else getattr(ent, 'health', 100)
+    if health <= 0:
         return
 
     if hasattr(ucmd, "angles"):
-        ent.client.v_angle[:] = list(ucmd.angles)
+        if is_dict:
+            if 'client' in ent and 'v_angle' in ent['client']:
+                ent['client']['v_angle'][:] = list(ucmd.angles)
+        else:
+            ent.client.v_angle[:] = list(ucmd.angles)
 
-    if hasattr(ucmd, "forwardmove"):
-        ent.velocity[0] = float(ucmd.forwardmove)
-    if hasattr(ucmd, "sidemove"):
-        ent.velocity[1] = float(ucmd.sidemove)
-    if hasattr(ucmd, "upmove"):
-        ent.velocity[2] = float(ucmd.upmove)
+    velocity = ent.get('velocity') if is_dict else getattr(ent, 'velocity', None)
+    if velocity:
+        if hasattr(ucmd, "forwardmove"):
+            velocity[0] = float(ucmd.forwardmove)
+        if hasattr(ucmd, "sidemove"):
+            velocity[1] = float(ucmd.sidemove)
+        if hasattr(ucmd, "upmove"):
+            velocity[2] = float(ucmd.upmove)
 
     try:
         from .p_weapon import Think_Weapon

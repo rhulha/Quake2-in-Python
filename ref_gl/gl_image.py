@@ -35,7 +35,12 @@ class WalHeader:
 def LoadWal(filename):
     """Load WAL texture file"""
     try:
-        from ..quake2.files import FS_LoadFile
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        from quake2.files import FS_LoadFile
         global palette_data
 
         if palette_data is None:
@@ -134,7 +139,12 @@ class PcxHeader:
 def LoadPcx(filename):
     """Load PCX image file"""
     try:
-        from ..quake2.files import FS_LoadFile
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        from quake2.files import FS_LoadFile
         global palette_data
 
         data, length = FS_LoadFile(filename)
@@ -260,7 +270,12 @@ def GL_Bind(texnum):
 def GL_LoadPalette():
     """Load Quake palette from colormap"""
     try:
-        from ..quake2.files import FS_LoadFile
+        import sys
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+        from quake2.files import FS_LoadFile
         global palette_data
 
         data, length = FS_LoadFile("pics/colormap.pcx")

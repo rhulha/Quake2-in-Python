@@ -101,16 +101,7 @@ def WinMain(argc, argv):
                 if msec > 200:  # Cap at 200ms (5 FPS minimum)
                     msec = 200
 
-                # Run main frame first (renders scene)
-                try:
-                    Qcommon_Frame(msec)
-                except Exception as e:
-                    print(f"Qcommon_Frame error: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    break
-
-                # Handle input after rendering (so screenshots capture rendered frame)
+                # Process input first (updates key states for this frame)
                 try:
                     should_continue = IN_Frame()
                     if not should_continue:
@@ -118,6 +109,15 @@ def WinMain(argc, argv):
                         break
                 except Exception as e:
                     print(f"IN_Frame error: {e}")
+
+                # Run main frame (will use the input we just processed)
+                try:
+                    Qcommon_Frame(msec)
+                except Exception as e:
+                    print(f"Qcommon_Frame error: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    break
 
                 frame_count += 1
 

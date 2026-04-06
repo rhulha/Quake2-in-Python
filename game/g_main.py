@@ -113,6 +113,21 @@ def G_RunFrame():
         # Update time
         game.time += 0.016  # 16ms = ~60Hz
 
+        # Process client input and apply to player
+        try:
+            from ..quake2 import cl_main
+            from .p_client import ClientThink
+
+            if hasattr(cl_main, 'cls') and hasattr(cl_main.cls, 'cmd_queue'):
+                if cl_main.cls.cmd_queue:
+                    cmd = cl_main.cls.cmd_queue[-1]
+
+                    if len(game.entities) > 1 and game.entities[1]:
+                        player = game.entities[1]
+                        ClientThink(player, cmd)
+        except Exception:
+            pass
+
         # Run entity thinks
         for ent in game.entities:
             if ent and hasattr(ent, 'think') and ent.think:
@@ -122,7 +137,26 @@ def G_RunFrame():
                     pass
 
         # Physics simulation
-        # TODO: Run physics for all entities
+        for ent in game.entities:
+            if not ent:
+                continue
+
+            inuse = ent.get('inuse', False) if isinstance(ent, dict) else getattr(ent, 'inuse', False)
+            if not inuse:
+                continue
+
+            velocity = ent.get('velocity') if isinstance(ent, dict) else getattr(ent, 'velocity', None)
+            if not velocity:
+                continue
+
+            origin = ent.get('origin') if isinstance(ent, dict) else getattr(ent.s, 'origin', None) if hasattr(ent, 's') else None
+            if not origin or len(origin) < 3:
+                continue
+
+            dt = 0.016
+            origin[0] += velocity[0] * dt
+            origin[1] += velocity[1] * dt
+            origin[2] += velocity[2] * dt
 
         # Check win conditions
         # TODO: CheckGameRules()

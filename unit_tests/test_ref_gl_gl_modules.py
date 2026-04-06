@@ -18,6 +18,7 @@ from ref_gl import gl_model
 from ref_gl import gl_rmain
 from ref_gl import gl_rmisc
 from ref_gl import gl_rsurf
+from ref_gl import gl_screenshot
 from ref_gl import gl_warp
 
 
@@ -53,6 +54,78 @@ def test_gl_draw_find_pic_builds_default_path(monkeypatch):
     result = gl_draw.Draw_FindPic("statusbar")
     assert result == 123
     assert captured["name"] == "pics/statusbar.pcx"
+
+
+def test_gl_draw_center_string_computes_center(monkeypatch):
+    calls = []
+    monkeypatch.setattr(gl_draw, "_setup_2d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "_restore_3d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "Draw_String", lambda x, y, text, color=None: calls.append((x, y, text, color)))
+
+    gl_draw.screen_width = 800
+    gl_draw.char_width = 8
+
+    gl_draw.SCR_DrawCenterString(120, "TEST")
+
+    # len("TEST") * 8 = 32, centered in 800 => x=384
+    assert calls == [(384, 120, "TEST", [1.0, 1.0, 1.0])]
+
+
+def test_gl_draw_hud_draws_expected_strings(monkeypatch):
+    fills = []
+    strings = []
+
+    monkeypatch.setattr(gl_draw, "_setup_2d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "_restore_3d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "Draw_Fill", lambda x, y, w, h, color: fills.append((x, y, w, h, color)))
+    monkeypatch.setattr(gl_draw, "Draw_String", lambda x, y, text, color=None: strings.append((x, y, text, color)))
+
+    gl_draw.screen_width = 640
+    gl_draw.screen_height = 480
+
+    player_state = {
+        "health": 87,
+        "armor": 40,
+        "ammo": 12,
+        "score": 9001,
+    }
+
+    gl_draw.SCR_DrawHUD(player_state)
+
+    assert fills == [(0, 448, 640, 32, [0.1, 0.1, 0.1])]
+    assert strings[0] == (10, 456, "Health: 87", [0.0, 1.0, 0.0])
+    assert strings[1] == (150, 456, "Armor: 40", [0.0, 0.5, 1.0])
+    assert strings[2] == (290, 456, "Ammo: 12", [1.0, 1.0, 0.0])
+    assert strings[3] == (460, 456, "Score: 9001", [0.5, 1.0, 0.5])
+
+
+def test_gl_draw_hud_none_state_no_draw(monkeypatch):
+    called = {"fill": 0, "string": 0}
+    monkeypatch.setattr(gl_draw, "Draw_Fill", lambda *args, **kwargs: called.__setitem__("fill", called["fill"] + 1))
+    monkeypatch.setattr(gl_draw, "Draw_String", lambda *args, **kwargs: called.__setitem__("string", called["string"] + 1))
+    gl_draw.SCR_DrawHUD(None)
+    assert called["fill"] == 0
+    assert called["string"] == 0
+
+
+def test_gl_draw_pause_and_gameover_call_center(monkeypatch):
+    centers = []
+    fills = []
+
+    monkeypatch.setattr(gl_draw, "_setup_2d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "_restore_3d_mode", lambda: None)
+    monkeypatch.setattr(gl_draw, "Draw_Fill", lambda *args: fills.append(args))
+    monkeypatch.setattr(gl_draw, "SCR_DrawCenterString", lambda y, text: centers.append((y, text)))
+
+    gl_draw.screen_width = 800
+    gl_draw.screen_height = 600
+
+    gl_draw.DrawPause()
+    gl_draw.DrawGameOver()
+
+    assert centers[0] == (280, "PAUSED")
+    assert centers[1] == (280, "GAME OVER")
+    assert len(fills) == 2
 
 
 def test_gl_image_palette_to_rgba_maps_indices():
@@ -96,6 +169,34 @@ def test_gl_image_draw_get_palette_roundtrip():
     assert gl_image.Draw_GetPalette() == b"abc"
 
 
+def test_gl_image_bind_texture_calls_gl(monkeypatch):
+    called = {"count": 0, "args": None}
+
+    def fake_bind(target, tex_id):
+        called["count"] += 1
+        called["args"] = (target, tex_id)
+
+    monkeypatch.setattr(gl_image, "glBindTexture", fake_bind)
+    gl_image.GL_BindTexture(42)
+    assert called["count"] == 1
+    assert called["args"][1] == 42
+
+
+def test_gl_image_bind_texture_ignores_zero(monkeypatch):
+    called = {"count": 0}
+    monkeypatch.setattr(gl_image, "glBindTexture", lambda *args: called.__setitem__("count", called["count"] + 1))
+    gl_image.GL_BindTexture(0)
+    assert called["count"] == 0
+
+
+def test_gl_image_bind_by_index(monkeypatch):
+    bound = {"value": None}
+    monkeypatch.setattr(gl_image, "GL_BindTexture", lambda tex_id: bound.__setitem__("value", tex_id))
+    gl_image.textures = [11, 22, 33]
+    gl_image.GL_Bind(1)
+    assert bound["value"] == 22
+
+
 def test_gl_light_scalar_helpers():
     assert gl_light._clamp(2.0) == 1.0
     assert gl_light._clamp(-1.0) == 0.0
@@ -121,6 +222,12 @@ def test_gl_light_set_style_scales_255_values():
 
 def test_gl_light_get_style_out_of_range_default():
     assert gl_light.R_GetLightStyle(1000) == [1.0, 1.0, 1.0]
+
+
+def test_gl_light_build_lightmap_fills_white_stride_three():
+    dest = bytearray(12)
+    gl_light.R_BuildLightMap({"dummy": True}, dest, 3)
+    assert dest == bytearray([255, 255, 255] * 4)
 
 
 def test_gl_light_sample_lightmap_leaf_from_bytes():
@@ -170,6 +277,27 @@ def test_gl_model_free_and_free_all():
     assert "a" not in gl_model.mod_known
     gl_model.Mod_FreeAll()
     assert gl_model.mod_known == {}
+
+
+def test_gl_model_for_name_delegates(monkeypatch):
+    monkeypatch.setattr(gl_model, "Mod_LoadModel", lambda name, crash: (name, crash))
+    assert gl_model.Mod_ForName("maps/base1.bsp", True) == ("maps/base1.bsp", True)
+
+
+def test_gl_model_begin_registration_increments_sequence(monkeypatch):
+    gl_model.registration_sequence = 10
+    monkeypatch.setattr(gl_model, "Mod_ForName", lambda name, crash: {"name": name, "crash": crash})
+    result = gl_model.R_BeginRegistration("maps/test.bsp")
+    assert result == {"name": "maps/test.bsp", "crash": True}
+    assert gl_model.registration_sequence == 11
+
+
+def test_gl_model_register_model_error_returns_none(monkeypatch):
+    def fail(name, crash):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(gl_model, "Mod_ForName", fail)
+    assert gl_model.R_RegisterModel("x") is None
 
 
 def test_gl_mesh_lerp_verts_interpolates():
@@ -224,12 +352,200 @@ def test_gl_rsurf_texture_animation_dict_and_default():
     assert gl_rsurf.R_TextureAnimation(None) == 0
 
 
+def test_gl_rsurf_create_surface_lightmap_sets_coords(monkeypatch):
+    class FakeBlock:
+        def allocate(self, w, h):
+            assert (w, h) == (16, 16)
+            return (5, 9)
+
+    monkeypatch.setattr(gl_rsurf, "lightmap_block", FakeBlock())
+    surf = {}
+    gl_rsurf.GL_CreateSurfaceLightmap(surf)
+    assert surf["lm_x"] == 5
+    assert surf["lm_y"] == 9
+
+
+def test_gl_rsurf_parse_texinfo_entry():
+    # vecs + flags + value + texture(32) + nexttexinfo
+    data = bytearray(gl_rsurf.TEXINFO_SIZE_BSP)
+    import struct
+
+    struct.pack_into('<fff', data, 0, 1.0, 0.0, 0.0)    # s axis
+    struct.pack_into('<f', data, 12, 16.0)               # s offset
+    struct.pack_into('<fff', data, 16, 0.0, 1.0, 0.0)    # t axis
+    struct.pack_into('<f', data, 28, 8.0)                # t offset
+    struct.pack_into('<I', data, 32, 123)                # flags
+    struct.pack_into('<I', data, 36, 456)                # value
+    tex_name = b"e1u1/base1_1"
+    data[40:40 + len(tex_name)] = tex_name
+    struct.pack_into('<i', data, 72, -1)
+
+    tx = gl_rsurf._parse_texinfo_entry(bytes(data), 0)
+    assert tx is not None
+    assert tx["texture"] == "e1u1/base1_1"
+    assert tx["s_axis"] == [1.0, 0.0, 0.0]
+    assert tx["t_axis"] == [0.0, 1.0, 0.0]
+
+
+def test_gl_rsurf_compute_uv_with_texinfo():
+    tx = {
+        "s_axis": [1.0, 0.0, 0.0],
+        "t_axis": [0.0, 1.0, 0.0],
+        "s_off": 32.0,
+        "t_off": 64.0,
+    }
+    u, v = gl_rsurf._compute_uv([32.0, 64.0, 0.0], tx)
+    assert u == pytest.approx(1.0)
+    assert v == pytest.approx(2.0)
+
+
+def test_gl_rsurf_draw_face_textured_path(monkeypatch):
+    # Build a simple triangle through surfedges/edges indirection.
+    import struct
+
+    surfedges = struct.pack('<iii', 0, 1, 2)
+    edges = struct.pack('<HHHHHH', 0, 1, 1, 2, 2, 0)
+
+    # One texinfo entry with texture name.
+    tex = bytearray(gl_rsurf.TEXINFO_SIZE_BSP)
+    struct.pack_into('<fff', tex, 0, 1.0, 0.0, 0.0)
+    struct.pack_into('<f', tex, 12, 0.0)
+    struct.pack_into('<fff', tex, 16, 0.0, 1.0, 0.0)
+    struct.pack_into('<f', tex, 28, 0.0)
+    tex_name = b"e1u1/base1_1"
+    tex[40:40 + len(tex_name)] = tex_name
+
+    model = SimpleNamespace(
+        lump_surfedges=surfedges,
+        lump_edges=edges,
+        lump_texinfo=bytes(tex),
+        vertices=[[0.0, 0.0, 0.0], [64.0, 0.0, 0.0], [0.0, 64.0, 0.0]],
+    )
+    face = {"first_edge": 0, "num_edges": 3, "texinfo": 0}
+
+    calls = {"tex": 0, "verts": 0, "bind": 0, "enable": 0}
+    monkeypatch.setattr(gl_rsurf, "glBegin", lambda mode: None)
+    monkeypatch.setattr(gl_rsurf, "glEnd", lambda: None)
+    monkeypatch.setattr(gl_rsurf, "glVertex3f", lambda x, y, z: calls.__setitem__("verts", calls["verts"] + 1))
+    monkeypatch.setattr(gl_rsurf, "glTexCoord2f", lambda u, v: calls.__setitem__("tex", calls["tex"] + 1))
+    monkeypatch.setattr(gl_rsurf, "glEnable", lambda mode: calls.__setitem__("enable", calls["enable"] + 1))
+    monkeypatch.setattr(gl_rsurf, "glDisable", lambda mode: None)
+    monkeypatch.setattr(gl_rsurf, "glColor4f", lambda *args: None)
+    monkeypatch.setattr(gl_rsurf, "glColor3f", lambda *args: None)
+
+    class _FakeImage:
+        @staticmethod
+        def GL_FindImage(name, image_type):
+            return 55
+
+        @staticmethod
+        def GL_BindTexture(tex_id):
+            calls["bind"] += 1
+
+    import ref_gl.gl_image as _gl_image
+    monkeypatch.setattr(_gl_image, "GL_FindImage", _FakeImage.GL_FindImage)
+    monkeypatch.setattr(_gl_image, "GL_BindTexture", _FakeImage.GL_BindTexture)
+
+    count = gl_rsurf._draw_face(model, face)
+    assert count == 3
+    assert calls["bind"] == 1
+    assert calls["enable"] >= 1
+    assert calls["tex"] == 3
+    assert calls["verts"] == 3
+
+
 def test_gl_rmain_stub_and_defaults():
     assert gl_rmain.R_CullBox([0, 0, 0], [1, 1, 1]) is False
     assert gl_rmain.R_DrawSpriteModel(None) is None
     assert gl_rmain.R_DrawParticles() is None
     assert gl_rmain.GL_DrawParticles(0, [], None) is None
     assert gl_rmain.R_PolyBlend() is None
+
+
+def test_gl_rmain_setup_viewport_calls_gl(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(gl_rmain, "glViewport", lambda x, y, w, h: calls.append(("viewport", x, y, w, h)))
+    monkeypatch.setattr(gl_rmain, "glMatrixMode", lambda mode: calls.append(("matrix", mode)))
+    monkeypatch.setattr(gl_rmain, "glLoadIdentity", lambda: calls.append(("identity",)))
+    monkeypatch.setattr(gl_rmain, "GLFrustum", lambda l, r, b, t, n, f: calls.append(("frustum", l, r, b, t, n, f)))
+
+    gl_rmain.R_SetupViewport(800, 600, 75.0)
+
+    assert calls[0] == ("viewport", 0, 0, 800, 600)
+    assert any(c[0] == "frustum" for c in calls)
+
+
+def test_gl_rmain_setup_matrices_order(monkeypatch):
+    calls = []
+    monkeypatch.setattr(gl_rmain, "glMatrixMode", lambda mode: calls.append(("matrix", mode)))
+    monkeypatch.setattr(gl_rmain, "glLoadIdentity", lambda: calls.append(("identity",)))
+    monkeypatch.setattr(gl_rmain, "glRotatef", lambda a, x, y, z: calls.append(("rotate", a, x, y, z)))
+    monkeypatch.setattr(gl_rmain, "glTranslatef", lambda x, y, z: calls.append(("translate", x, y, z)))
+
+    refdef = SimpleNamespace(viewangles=[10, 20, 30], vieworg=[100, 200, 300])
+    gl_rmain.R_SetupMatrices(refdef)
+
+    assert calls[0][0] == "matrix"
+    assert calls[1] == ("identity",)
+    assert calls[2][0] == "rotate"
+    assert calls[3][0] == "rotate"
+    assert calls[4][0] == "rotate"
+    assert calls[5] == ("translate", -100, -200, -300)
+
+
+def test_gl_screenshot_error_returns_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(gl_screenshot, "glFlush", lambda: None)
+    monkeypatch.setattr(gl_screenshot, "glFinish", lambda: None)
+    monkeypatch.setattr(gl_screenshot, "glReadBuffer", lambda x: None)
+
+    def fail_read(*args, **kwargs):
+        raise RuntimeError("read failed")
+
+    monkeypatch.setattr(gl_screenshot, "glReadPixels", fail_read)
+    assert gl_screenshot.take_screenshot(4, 4, str(tmp_path)) is None
+
+
+def test_gl_screenshot_success(monkeypatch, tmp_path):
+    monkeypatch.setattr(gl_screenshot, "glFlush", lambda: None)
+    monkeypatch.setattr(gl_screenshot, "glFinish", lambda: None)
+    monkeypatch.setattr(gl_screenshot, "glReadBuffer", lambda x: None)
+    monkeypatch.setattr(gl_screenshot, "glReadPixels", lambda *args: b"\x00" * (2 * 2 * 3))
+
+    saved = {"path": None}
+
+    class FakeDatetime:
+        @staticmethod
+        def now():
+            class _Now:
+                @staticmethod
+                def strftime(fmt):
+                    return "20260101_120000"
+
+            return _Now()
+
+    class FakeImageModule:
+        @staticmethod
+        def fromstring(data, size, mode):
+            return object()
+
+        @staticmethod
+        def save(surface, path):
+            saved["path"] = path
+
+    class FakeTransform:
+        @staticmethod
+        def flip(surface, xbool, ybool):
+            return surface
+
+    monkeypatch.setattr(gl_screenshot, "datetime", FakeDatetime)
+    monkeypatch.setattr(gl_screenshot.pygame, "image", FakeImageModule)
+    monkeypatch.setattr(gl_screenshot.pygame, "transform", FakeTransform)
+
+    path = gl_screenshot.take_screenshot(2, 2, str(tmp_path))
+    assert path is not None
+    assert path.endswith("quake2_screenshot_20260101_120000.png")
+    assert saved["path"] == path
 
 
 def test_gl_rmisc_todo_functions_return_none():

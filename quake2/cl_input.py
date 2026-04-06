@@ -70,6 +70,8 @@ cl_yawspeed = 140.0
 cl_pitchspeed = 150.0
 cl_run = 0.0
 cl_anglespeedkey = 1.5
+cl_mouse_sensitivity = 0.2
+cl_mouse_invert = False
 
 sys_frame_time = _now_msec()
 frame_msec = 16
@@ -402,10 +404,23 @@ def _handle_keyup(key):
 def _handle_mousemotion(rel):
     """Handle mouse motion for look"""
     if _State.key_dest_game:
-        # Apply mouse deltas to view angles
+        # Apply mouse deltas directly to local view angles.
         mouse_x, mouse_y = rel
-        _State.frame_player_delta_angles[YAW] -= int(mouse_x * 0.5)
-        _State.frame_player_delta_angles[PITCH] -= int(mouse_y * 0.5)
+
+        _State.viewangles[YAW] -= float(mouse_x) * cl_mouse_sensitivity
+        pitch_delta = float(mouse_y) * cl_mouse_sensitivity
+        _State.viewangles[PITCH] += pitch_delta if cl_mouse_invert else -pitch_delta
+
+        # Keep angles in sensible ranges.
+        if _State.viewangles[PITCH] > 89.0:
+            _State.viewangles[PITCH] = 89.0
+        if _State.viewangles[PITCH] < -89.0:
+            _State.viewangles[PITCH] = -89.0
+
+        while _State.viewangles[YAW] < 0.0:
+            _State.viewangles[YAW] += 360.0
+        while _State.viewangles[YAW] >= 360.0:
+            _State.viewangles[YAW] -= 360.0
 
 
 def _handle_mousebuttondown(button):

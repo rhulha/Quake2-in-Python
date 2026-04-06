@@ -9,6 +9,8 @@ from wrapper_qpy.linker import LinkEmptyFunctions
 
 LinkEmptyFunctions(globals(), ["Com_Printf"])
 
+TEXINFO_SIZE_BSP = 76
+
 # ===== Surface Rendering =====
 
 def R_DrawWorld(worldmodel):
@@ -91,18 +93,127 @@ def _draw_face(model, face):
 
         # Render polygon
         if len(vertices) >= 3:
-            # Use bright green so it's obviously visible against blue background
-            glColor3f(0.2, 1.0, 0.2)  # Bright green color
+            texinfo = _get_face_texinfo(model, face)
+            tex_id = _get_face_texture_id(texinfo)
+
+            if tex_id is not None:
+                glEnable(GL_TEXTURE_2D)
+                glColor4f(1.0, 1.0, 1.0, 1.0)
+
+                try:
+                    from . import gl_image
+                    gl_image.GL_BindTexture(tex_id)
+                except Exception:
+                    pass
+            else:
+                glDisable(GL_TEXTURE_2D)
+                glColor4f(0.75, 0.75, 0.75, 1.0)
+
             glBegin(GL_POLYGON)
             for v in vertices:
+                if tex_id is not None:
+                    u, t = _compute_uv(v, texinfo)
+                    glTexCoord2f(u, t)
                 glVertex3f(v[0], v[1], v[2])
             glEnd()
+
+            if tex_id is not None:
+                glDisable(GL_TEXTURE_2D)
+
             return len(vertices)
 
         return 0
 
     except Exception as e:
         return 0
+
+
+def _parse_texinfo_entry(lump_data, texinfo_idx):
+    """Parse one BSP texinfo entry (76 bytes) from raw texinfo lump."""
+    try:
+        if texinfo_idx < 0:
+            return None
+
+        offset = texinfo_idx * TEXINFO_SIZE_BSP
+        if offset + TEXINFO_SIZE_BSP > len(lump_data):
+            return None
+
+        s_axis = list(struct.unpack_from('<fff', lump_data, offset + 0))
+        s_off = struct.unpack_from('<f', lump_data, offset + 12)[0]
+        t_axis = list(struct.unpack_from('<fff', lump_data, offset + 16))
+        t_off = struct.unpack_from('<f', lump_data, offset + 28)[0]
+        flags = struct.unpack_from('<I', lump_data, offset + 32)[0]
+        value = struct.unpack_from('<I', lump_data, offset + 36)[0]
+        texture = lump_data[offset + 40:offset + 72].decode('latin-1', errors='ignore').rstrip('\x00')
+        nexttexinfo = struct.unpack_from('<i', lump_data, offset + 72)[0]
+
+        return {
+            's_axis': s_axis,
+            's_off': s_off,
+            't_axis': t_axis,
+            't_off': t_off,
+            'flags': flags,
+            'value': value,
+            'texture': texture,
+            'nexttexinfo': nexttexinfo,
+        }
+    except Exception:
+        return None
+
+
+def _get_face_texinfo(model, face):
+    """Get parsed texinfo for a face using model lump cache."""
+    try:
+        texinfo_idx = face.get('texinfo', -1) if isinstance(face, dict) else -1
+        if texinfo_idx < 0:
+            return None
+
+        if not hasattr(model, 'lump_texinfo') or not model.lump_texinfo:
+            return None
+
+        if not hasattr(model, '_texinfo_cache') or model._texinfo_cache is None:
+            model._texinfo_cache = {}
+
+        if texinfo_idx not in model._texinfo_cache:
+            model._texinfo_cache[texinfo_idx] = _parse_texinfo_entry(model.lump_texinfo, texinfo_idx)
+
+        return model._texinfo_cache.get(texinfo_idx)
+    except Exception:
+        return None
+
+
+def _get_face_texture_id(texinfo):
+    """Resolve texinfo texture name to an OpenGL texture id."""
+    try:
+        if not texinfo:
+            return None
+
+        texture_name = texinfo.get('texture', '')
+        if not texture_name:
+            return None
+
+        from . import gl_image
+        return gl_image.GL_FindImage(texture_name, 1)
+    except Exception:
+        return None
+
+
+def _compute_uv(vertex, texinfo):
+    """Compute texture coordinates using BSP texinfo vectors; fallback to planar mapping."""
+    try:
+        if texinfo:
+            s_axis = texinfo.get('s_axis', [1.0, 0.0, 0.0])
+            t_axis = texinfo.get('t_axis', [0.0, 1.0, 0.0])
+            s_off = float(texinfo.get('s_off', 0.0))
+            t_off = float(texinfo.get('t_off', 0.0))
+
+            s = (vertex[0] * s_axis[0] + vertex[1] * s_axis[1] + vertex[2] * s_axis[2] + s_off) / 64.0
+            t = (vertex[0] * t_axis[0] + vertex[1] * t_axis[1] + vertex[2] * t_axis[2] + t_off) / 64.0
+            return s, t
+    except Exception:
+        pass
+
+    return vertex[0] / 128.0, vertex[1] / 128.0
 
 
 def _read_surfedges(lump_data, offset, count):
