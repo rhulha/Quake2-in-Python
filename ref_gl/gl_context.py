@@ -16,7 +16,7 @@ def init():
     ctx = moderngl.create_context()
     ctx.enable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
     ctx.cull_face = 'back'
-    ctx.front_face = 'ccw'
+    ctx.front_face = 'cw'
     ctx.depth_func = '<='
 
     from . import shaders

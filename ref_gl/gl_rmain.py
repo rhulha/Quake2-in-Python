@@ -195,9 +195,9 @@ def R_RenderFrame(refdef_in):
 
         refdef = refdef_in
 
-        # Get refdef dimensions
-        width = refdef.width if hasattr(refdef, 'width') else 800
-        height = refdef.height if hasattr(refdef, 'height') else 600
+        # Get actual display size (glw_imp tracks real size after fullscreen toggle)
+        width = glw_imp.width if glw_imp.width > 0 else (refdef.width if hasattr(refdef, 'width') else 800)
+        height = glw_imp.height if glw_imp.height > 0 else (refdef.height if hasattr(refdef, 'height') else 600)
         fov_y = refdef.fov_y if hasattr(refdef, 'fov_y') else 75.0
 
         vieworg = refdef.vieworg if hasattr(refdef, 'vieworg') else [0, 0, 0]

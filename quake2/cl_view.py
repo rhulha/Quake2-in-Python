@@ -149,6 +149,48 @@ def SCR_DrawCrosshair():
     return _ViewState.crosshair
 
 
+def _find_spawn_point():
+    """Parse BSP entity string to find info_player_start origin."""
+    try:
+        from quake2 import cmodel
+        estr = cmodel.entity_string
+        if not estr:
+            return None
+        # Parse entity blocks: { "key" "value" ... }
+        i = 0
+        while i < len(estr):
+            i = estr.find('{', i)
+            if i == -1:
+                break
+            end = estr.find('}', i)
+            if end == -1:
+                break
+            block = estr[i+1:end]
+            i = end + 1
+            keys = {}
+            j = 0
+            while j < len(block):
+                q1 = block.find('"', j)
+                if q1 == -1:
+                    break
+                q2 = block.find('"', q1 + 1)
+                q3 = block.find('"', q2 + 1)
+                q4 = block.find('"', q3 + 1)
+                if q4 == -1:
+                    break
+                keys[block[q1+1:q2]] = block[q3+1:q4]
+                j = q4 + 1
+            if keys.get('classname') == 'info_player_start':
+                origin_str = keys.get('origin', '')
+                if origin_str:
+                    parts = origin_str.split()
+                    if len(parts) == 3:
+                        return [float(parts[0]), float(parts[1]), float(parts[2])]
+    except Exception:
+        pass
+    return None
+
+
 def V_RenderView(fov_x=90.0, width=800, height=600):
     """Build refdef and render frame"""
     global client
@@ -158,20 +200,10 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
 
     # Set initial camera position from player spawn point (only once per map load)
     if not _ViewState.spawned:
-        try:
-            from . import sv_main
-            if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
-                player = sv_main.server.edicts[0]
-                spawn_origin = None
-                if isinstance(player, dict):
-                    spawn_origin = player.get('origin')
-                elif hasattr(player, 'origin'):
-                    spawn_origin = list(player.origin) if hasattr(player.origin, '__iter__') else None
-                if spawn_origin and any(v != 0 for v in spawn_origin):
-                    _ViewState.vieworg = list(spawn_origin)
-                    _ViewState.spawned = True
-        except Exception:
-            pass
+        spawn_origin = _find_spawn_point()
+        if spawn_origin:
+            _ViewState.vieworg = spawn_origin
+            _ViewState.spawned = True
 
     # Local camera angles and movement from input system.
     # Use client-side movement instead of waiting for server updates (single-player camera control)

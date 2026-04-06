@@ -296,8 +296,31 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
         for i in range(3):
             movement[i] += up[i] * cmd.upmove * frametime
 
-    # Apply movement to vieworg
+    # Apply movement to vieworg with collision detection
     new_vieworg = [vieworg[i] + movement[i] for i in range(3)]
+
+    try:
+        from quake2.cmodel import CM_BoxTrace, MASK_PLAYERSOLID, num_models
+        if num_models > 0:
+            MINS = [-16.0, -16.0, -24.0]
+            MAXS = [16.0, 16.0, 32.0]
+            intended = new_vieworg
+            tr = CM_BoxTrace(vieworg, intended, MINS, MAXS, 0, MASK_PLAYERSOLID)
+            if tr.fraction < 1.0:
+                if tr.plane is not None:
+                    n = tr.plane['normal']
+                    # Remaining movement from hit point toward intended destination
+                    remaining = [intended[i] - tr.endpos[i] for i in range(3)]
+                    # Remove the component that goes into the wall
+                    dot = remaining[0]*n[0] + remaining[1]*n[1] + remaining[2]*n[2]
+                    slide_dest = [tr.endpos[i] + remaining[i] - dot*n[i] for i in range(3)]
+                    tr2 = CM_BoxTrace(tr.endpos, slide_dest, MINS, MAXS, 0, MASK_PLAYERSOLID)
+                    new_vieworg = list(tr2.endpos)
+                else:
+                    new_vieworg = list(tr.endpos)
+    except Exception:
+        pass
+
     return new_vieworg
 
 
@@ -405,6 +428,27 @@ def _handle_keydown(key):
     # ESC - menu (set key_dest_game)
     elif key == pygame.K_ESCAPE:
         _State.key_dest_game = False
+
+    # F11 - toggle fullscreen
+    elif key == pygame.K_F11:
+        surf = pygame.display.get_surface()
+        if surf:
+            try:
+                from ref_gl import glw_imp
+            except ImportError:
+                glw_imp = None
+            if surf.get_flags() & pygame.FULLSCREEN:
+                pygame.display.set_mode((800, 600), pygame.OPENGL | pygame.DOUBLEBUF)
+                if glw_imp:
+                    glw_imp.width, glw_imp.height = 800, 600
+            else:
+                desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
+                pygame.display.set_mode(
+                    (desktop_w, desktop_h),
+                    pygame.OPENGL | pygame.DOUBLEBUF | pygame.FULLSCREEN,
+                )
+                if glw_imp:
+                    glw_imp.width, glw_imp.height = desktop_w, desktop_h
 
     # F12 - screenshot
     elif key == pygame.K_F12:
