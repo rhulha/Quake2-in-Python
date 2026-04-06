@@ -54,13 +54,13 @@ def _make_view_matrix(vieworg, pitch_deg, yaw_deg, roll_deg):
         c, s = math.cos(a), math.sin(a)
         return np.array([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
 
-    p = math.radians(pitch_deg)
-    y = math.radians(yaw_deg)
+    p = math.radians(-pitch_deg)
+    y = math.radians(-yaw_deg)
     r = math.radians(-roll_deg)
 
-    # Apply rotations: yaw around Y, pitch around Z (due to axis permutation), roll around X
-    # The axis permutation remaps X->-Z, Y->Y, Z->-X, so pitch (rot_x in old space) needs rot_z in GL space
-    R = rot_x(r) @ rot_z(p) @ rot_y(y)
+    # Standard FPS camera: yaw around world up (Y), then pitch around local right (X)
+    # No roll for first-person camera
+    R = rot_x(p) @ rot_y(y)
 
     # Axis permutation: Quake X(forward) -> GL -Z, Q2 Y(left) -> GL -X, Q2 Z(up) -> GL Y
     perm = np.array([
