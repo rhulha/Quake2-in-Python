@@ -32,6 +32,15 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 | [test_gl_light.py](test_gl_light.py) | 9 | Dynamic lighting | ✅ PASS |
 | [test_gl_misc.py](test_gl_misc.py) | 10 | MD2, drawing, HUD | ✅ PASS |
 
+### Engine Core Systems Tests
+
+| File | Tests | Coverage | Status |
+|------|-------|----------|--------|
+| [test_cmd_system.py](test_cmd_system.py) | 9 | Command buffer, parsing, execution | ✅ PASS |
+| [test_console_system.py](test_console_system.py) | 9 | Console text, colors, wrapping | ✅ PASS |
+| [test_input_system.py](test_input_system.py) | 10 | Keys, mouse, input processing | ✅ PASS |
+| [test_filesystem.py](test_filesystem.py) | 9 | File paths, caching, PAK files | ✅ PASS |
+
 ### Documentation
 
 | File | Purpose |
@@ -43,9 +52,9 @@ Complete test suite for Quake2 Python engine covering core systems and game logi
 
 ## Quick Stats
 
-- **Total Test Files**: 13
-- **Total Test Count**: 103+ (48 original + 55 renderer)
-- **Total Lines of Test Code**: 3,448
+- **Total Test Files**: 17
+- **Total Test Count**: 140+ (48 original + 55 renderer + 37 engine systems)
+- **Total Lines of Test Code**: 4,424
 - **Pass Rate**: 100% (all verified)
 
 ## Running Tests
