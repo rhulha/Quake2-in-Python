@@ -235,6 +235,12 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
             _ViewState.worldmodel = worldmodel
             _ViewState.current_mapname = mapname
             _ViewState.spawned = False  # Reset so we pick up new spawn point
+            try:
+                from . import cl_input
+                cl_input._State.velocity = [0.0, 0.0, 0.0]
+                cl_input._State.on_ground = False
+            except Exception:
+                pass
     except Exception as e:
         pass
 

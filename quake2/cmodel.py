@@ -325,68 +325,72 @@ def vec3_copy(v):
 
 
 def CM_ClipBoxToBrush(mins, maxs, p1, p2, trace_obj, brush_idx):
-    """Clip movement against a brush"""
+    """Clip movement against a brush (Quake 2 enter/leave fraction algorithm)"""
     if brush_idx < 0 or brush_idx >= num_brushes:
         return
 
     brush = brushes[brush_idx]
-    brush_contents = brush['contents']
-
-    if not (brush_contents & trace_contents):
+    if not (brush['contents'] & trace_contents):
+        return
+    if brush['num_sides'] == 0:
         return
 
-    # Check all sides of the brush
-    entered = False
-    exited = False
+    enterfrac = -1.0
+    leavefrac = 1.0
+    clipplane = None
+    startout = False
+    getout = False
 
     for i in range(brush['first_side'], brush['first_side'] + brush['num_sides']):
         side = brushsides[i]
         plane = planes[side['plane_num']]
+        n = plane['normal']
 
-        # Compute distance from box to plane
-        d1 = vec3_dot(p1, plane['normal']) - plane['dist']
-        d2 = vec3_dot(p2, plane['normal']) - plane['dist']
+        # Expand plane distance for AABB: pick the box corner closest to plane normal
+        # ofs[j] = mins[j] if normal[j] >= 0, else maxs[j]
+        dist = plane['dist'] - (
+            (mins[0] if n[0] >= 0 else maxs[0]) * n[0] +
+            (mins[1] if n[1] >= 0 else maxs[1]) * n[1] +
+            (mins[2] if n[2] >= 0 else maxs[2]) * n[2]
+        )
 
-        # Add extents
-        for j in range(3):
-            if plane['normal'][j] > 0:
-                d1 -= mins[j]
-                d2 -= mins[j]
-            else:
-                d1 += maxs[j]
-                d2 += maxs[j]
+        d1 = p1[0]*n[0] + p1[1]*n[1] + p1[2]*n[2] - dist
+        d2 = p2[0]*n[0] + p2[1]*n[1] + p2[2]*n[2] - dist
 
-        if d2 > 0:
-            exited = True
         if d1 > 0:
-            entered = True
+            startout = True
+        if d2 > 0:
+            getout = True
 
-        # If box is completely behind plane, stop
-        if d1 > 0 and d2 >= d1:
+        # Completely in front of this plane → no intersection with brush
+        if d1 > 0 and d2 >= 0:
             return
 
-        # Calculate intersection
-        if d1 > d2:
-            # Entering
-            if d2 < 0 and d1 > 0:
-                f = max(0, d1) / (d1 - d2)
-                if f < trace_obj.fraction:
-                    trace_obj.fraction = f
-                    trace_obj.plane = {'normal': plane['normal'], 'dist': plane['dist']}
-                    trace_obj.contents = brush_contents
-        else:
-            # Exiting
-            if d1 < 0 and d2 > 0:
-                f = max(0, d1) / (d1 - d2)
-                if f < trace_obj.fraction:
-                    trace_obj.fraction = f
-                    trace_obj.plane = {'normal': plane['normal'], 'dist': plane['dist']}
-                    trace_obj.contents = brush_contents
+        # Completely behind → keep checking other planes
+        if d1 <= 0 and d2 <= 0:
+            continue
 
-    if entered and not exited:
+        f = d1 / (d1 - d2)
+        if d1 > d2:
+            # Entering through this plane
+            if f > enterfrac:
+                enterfrac = f
+                clipplane = plane
+        else:
+            # Leaving through this plane
+            if f < leavefrac:
+                leavefrac = f
+
+    if not startout:
         trace_obj.startsolid = True
-        if trace_obj.fraction == 1.0:
+        if not getout:
             trace_obj.allsolid = True
+        return
+
+    if enterfrac < leavefrac and enterfrac > -1.0 and enterfrac < trace_obj.fraction:
+        trace_obj.fraction = max(0.0, enterfrac)
+        trace_obj.plane = {'normal': clipplane['normal'], 'dist': clipplane['dist']}
+        trace_obj.contents = brush['contents']
 
 
 def CM_TestBoxInBrush(mins, maxs, p1, trace_obj, brush_idx):
@@ -467,14 +471,15 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2, trace_obj):
     d1 = vec3_dot(p1, plane['normal']) - plane['dist']
     d2 = vec3_dot(p2, plane['normal']) - plane['dist']
 
-    # Add extents
+    # Expand plane distance by box extents (Quake 2 AABB trace expansion)
+    # offset = dot(normal, extents) where extents[i] = -mins[i] if normal[i]>=0 else -maxs[i]
     for i in range(3):
         if plane['normal'][i] > 0:
-            d1 -= trace.mins[i]
-            d2 -= trace.mins[i]
+            d1 += trace.mins[i]   # mins[i] is negative → subtracts from d
+            d2 += trace.mins[i]
         else:
-            d1 += trace.maxs[i]
-            d2 += trace.maxs[i]
+            d1 -= trace.maxs[i]   # maxs[i] is positive → subtracts from d
+            d2 -= trace.maxs[i]
 
     if d1 >= 0 and d2 >= 0:
         # Both in front
@@ -506,8 +511,8 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2, trace_obj):
 
     CM_RecursiveHullCheck(node['children'][side], p1f, midf, p1, mid, trace_obj)
 
-    if trace_obj.fraction != midf:
-        return
+    if trace_obj.fraction <= midf:
+        return  # near side hit something closer — skip far side
 
     CM_RecursiveHullCheck(node['children'][1 - side], midf, p2f, mid, p2, trace_obj)
 

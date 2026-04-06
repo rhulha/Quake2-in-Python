@@ -44,6 +44,8 @@ class _State:
     lightlevel = 0
     last_screenshot_time = 0
     screenshot_interval = 5.0  # Screenshot every 5 seconds
+    velocity = [0.0, 0.0, 0.0]   # persistent world-space velocity (units/sec)
+    on_ground = False
 
 
 in_klook = kbutton_t()
@@ -245,83 +247,96 @@ def IN_CenterView():
     _State.viewangles[PITCH] = -float(_State.frame_player_delta_angles[PITCH])
 
 
-def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
-    """Apply movement command to camera position"""
-    import math
+GRAVITY = 800.0
+JUMP_SPEED = 270.0
+PLAYER_MINS = [-16.0, -16.0, -24.0]
+PLAYER_MAXS = [16.0, 16.0, 32.0]
 
-    if not vieworg or not viewangles or not cmd:
-        return vieworg
 
-    # Create movement vector in camera local space
-    forward = [0.0, 0.0, 0.0]
-    right = [0.0, 0.0, 0.0]
-    up = [0.0, 0.0, 0.0]
-
-    # Calculate forward and right vectors from yaw angle
-    yaw_rad = math.radians(viewangles[YAW])
-    pitch_rad = math.radians(viewangles[PITCH])
-
-    # Forward vector (affected by pitch)
-    forward[0] = math.cos(yaw_rad) * math.cos(pitch_rad)
-    forward[1] = math.sin(yaw_rad) * math.cos(pitch_rad)
-    forward[2] = -math.sin(pitch_rad)
-
-    # Right vector (perpendicular to forward in horizontal plane)
-    right[0] = math.sin(yaw_rad)
-    right[1] = -math.cos(yaw_rad)
-    right[2] = 0.0
-
-    # Up vector (always vertical)
-    up[2] = 1.0
-
-    # Apply movement
-    # cmd.forwardmove/sidemove/upmove are already speed values (0-200)
-    # Scale by frametime to get distance traveled this frame
-
-    # Calculate movement in world space
-    movement = [0.0, 0.0, 0.0]
-
-    # Forward/backward movement (cmd already has speed, just scale by frametime)
-    if cmd.forwardmove != 0:
-        for i in range(3):
-            movement[i] += forward[i] * cmd.forwardmove * frametime
-
-    # Strafe movement
-    if cmd.sidemove != 0:
-        for i in range(3):
-            movement[i] += right[i] * cmd.sidemove * frametime
-
-    # Up/down movement
-    if cmd.upmove != 0:
-        for i in range(3):
-            movement[i] += up[i] * cmd.upmove * frametime
-
-    # Apply movement to vieworg with collision detection
-    new_vieworg = [vieworg[i] + movement[i] for i in range(3)]
-
+def _trace(start, end):
+    """Box trace through world, returns CTrace or None."""
     try:
         from quake2.cmodel import CM_BoxTrace, MASK_PLAYERSOLID, num_models
         if num_models > 0:
-            MINS = [-16.0, -16.0, -24.0]
-            MAXS = [16.0, 16.0, 32.0]
-            intended = new_vieworg
-            tr = CM_BoxTrace(vieworg, intended, MINS, MAXS, 0, MASK_PLAYERSOLID)
-            if tr.fraction < 1.0:
-                if tr.plane is not None:
-                    n = tr.plane['normal']
-                    # Remaining movement from hit point toward intended destination
-                    remaining = [intended[i] - tr.endpos[i] for i in range(3)]
-                    # Remove the component that goes into the wall
-                    dot = remaining[0]*n[0] + remaining[1]*n[1] + remaining[2]*n[2]
-                    slide_dest = [tr.endpos[i] + remaining[i] - dot*n[i] for i in range(3)]
-                    tr2 = CM_BoxTrace(tr.endpos, slide_dest, MINS, MAXS, 0, MASK_PLAYERSOLID)
-                    new_vieworg = list(tr2.endpos)
-                else:
-                    new_vieworg = list(tr.endpos)
+            return CM_BoxTrace(start, end, PLAYER_MINS, PLAYER_MAXS, 0, MASK_PLAYERSOLID)
     except Exception:
         pass
+    return None
 
-    return new_vieworg
+
+_SURF_EPSILON = 0.03125  # 1/32 unit — classic Quake epsilon push off surfaces
+
+
+def _slide_move(start, end):
+    """Move from start toward end, sliding along surfaces. Returns final position."""
+    tr = _trace(start, end)
+    if tr is None:
+        return end
+    if tr.startsolid:
+        return start  # already in solid — don't move deeper
+    if tr.fraction == 1.0:
+        return end
+
+    hit = list(tr.endpos)
+    if tr.plane is None:
+        return hit
+
+    n = tr.plane['normal']
+    # Push slightly off the surface so next-frame traces don't start inside the brush
+    hit = [hit[i] + n[i] * _SURF_EPSILON for i in range(3)]
+
+    remaining = [end[i] - hit[i] for i in range(3)]
+    dot = remaining[0]*n[0] + remaining[1]*n[1] + remaining[2]*n[2]
+    slide_dest = [hit[i] + remaining[i] - dot*n[i] for i in range(3)]
+
+    tr2 = _trace(hit, slide_dest)
+    if tr2 is None or tr2.fraction == 1.0:
+        return slide_dest
+    return list(tr2.endpos)
+
+
+def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
+    """Apply movement command with gravity and collision."""
+    import math
+
+    if not vieworg or not viewangles or not cmd or frametime <= 0:
+        return vieworg
+
+    # Horizontal basis vectors (ignoring pitch for movement)
+    yaw_rad = math.radians(viewangles[YAW])
+    fwd_x = math.cos(yaw_rad)
+    fwd_y = math.sin(yaw_rad)
+    right_x = math.sin(yaw_rad)
+    right_y = -math.cos(yaw_rad)
+
+    # --- Gravity ---
+    _State.velocity[2] -= GRAVITY * frametime
+
+    # --- Jump ---
+    if cmd.upmove > 0 and _State.on_ground:
+        _State.velocity[2] = JUMP_SPEED
+        _State.on_ground = False
+
+    # --- Horizontal WASD (set directly, no fly) ---
+    _State.velocity[0] = fwd_x * cmd.forwardmove + right_x * cmd.sidemove
+    _State.velocity[1] = fwd_y * cmd.forwardmove + right_y * cmd.sidemove
+
+    # --- Integrate velocity ---
+    end = [vieworg[i] + _State.velocity[i] * frametime for i in range(3)]
+
+    # --- Collision + slide ---
+    new_pos = _slide_move(vieworg, end)
+
+    # --- Ground check (short downward trace - detection only, no position snap) ---
+    ground_end = [new_pos[0], new_pos[1], new_pos[2] - 2.0]
+    gtr = _trace(new_pos, ground_end)
+    if gtr is not None and (gtr.fraction < 1.0 or gtr.startsolid):
+        _State.on_ground = True
+        _State.velocity[2] = 0.0
+    else:
+        _State.on_ground = False
+
+    return new_pos
 
 
 def CL_InitInput():
