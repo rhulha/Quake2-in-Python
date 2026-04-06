@@ -6,6 +6,7 @@ Handles initialization, frame rendering, and view setup
 import sys
 import os
 import math
+import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL import glFrustum as GLFrustum
 from wrapper_qpy.decorators import va_args, TODO
@@ -23,12 +24,64 @@ glstate = {
     'currentmatrix': None,
 }
 
+# ===== Matrix Helpers for ModernGL =====
+
+def _make_projection_matrix(fov_y_deg, aspect, near, far):
+    """Build column-major perspective projection matrix as numpy float32."""
+    f = 1.0 / math.tan(math.radians(fov_y_deg) * 0.5)
+    nf = 1.0 / (near - far)
+    mat = np.array([
+        [f / aspect, 0, 0, 0],
+        [0, f, 0, 0],
+        [0, 0, (far + near) * nf, (2 * far * near) * nf],
+        [0, 0, -1, 0],
+    ], dtype=np.float32)
+    return mat
+
+
+def _make_view_matrix(vieworg, pitch_deg, yaw_deg, roll_deg):
+    """Build view matrix from Quake 2 viewangles [pitch, yaw, roll]."""
+
+    def rot_x(a):
+        c, s = math.cos(a), math.sin(a)
+        return np.array([[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]], dtype=np.float32)
+
+    def rot_y(a):
+        c, s = math.cos(a), math.sin(a)
+        return np.array([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]], dtype=np.float32)
+
+    def rot_z(a):
+        c, s = math.cos(a), math.sin(a)
+        return np.array([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], dtype=np.float32)
+
+    p = math.radians(-pitch_deg)
+    y = math.radians(-yaw_deg)
+    r = math.radians(-roll_deg)
+
+    R = rot_z(r) @ rot_x(p) @ rot_y(y)
+
+    # Axis permutation: Quake X(forward) -> GL -Z, Q2 Y(left) -> GL -X, Q2 Z(up) -> GL Y
+    perm = np.array([
+        [0, -1, 0, 0],
+        [0, 0, 1, 0],
+        [-1, 0, 0, 0],
+        [0, 0, 0, 1],
+    ], dtype=np.float32)
+
+    T = np.eye(4, dtype=np.float32)
+    T[0, 3] = -vieworg[0]
+    T[1, 3] = -vieworg[1]
+    T[2, 3] = -vieworg[2]
+
+    return perm @ R @ T
+
+
 # ===== Initialization =====
 
 def R_Init():
     """Initialize OpenGL renderer"""
     try:
-        from . import glw_imp
+        from . import glw_imp, gl_image
         try:
             from quake2.common import Com_Printf, Cvar_Get
         except ImportError:
@@ -47,6 +100,9 @@ def R_Init():
         # Verify driver
         if not glw_imp.VerifyDriver():
             return False
+
+        # Initialize texture system
+        gl_image.GL_InitImages()
 
         Com_Printf("R_Init complete\n")
         return True
@@ -111,15 +167,20 @@ def R_SetupMatrices(refdef):
 
 
 def R_ClearScreen():
-    """Clear framebuffer"""
-    glClearColor(0.3, 0.3, 0.5, 1.0)  # Slightly bluish background
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    """Clear framebuffer using ModernGL"""
+    try:
+        from . import gl_context
+        if gl_context.ctx:
+            gl_context.ctx.clear(0.3, 0.3, 0.5, 1.0)
+    except Exception:
+        glClearColor(0.3, 0.3, 0.5, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
 
 # ===== Rendering =====
 
 def R_RenderFrame(refdef_in):
-    """Main frame rendering function"""
+    """Main frame rendering function - ModernGL version"""
     global refdef
 
     try:
@@ -127,6 +188,7 @@ def R_RenderFrame(refdef_in):
         from . import gl_rsurf
         from . import gl_model
         from . import gl_mesh
+        from . import gl_context
 
         refdef = refdef_in
 
@@ -144,17 +206,28 @@ def R_RenderFrame(refdef_in):
         # Clear screen
         R_ClearScreen()
 
-        # Setup viewport and projection
-        R_SetupViewport(width, height, fov_y)
+        # Set viewport
+        if gl_context.ctx:
+            gl_context.ctx.viewport = (0, 0, int(width), int(height))
 
-        # Setup camera matrices
-        R_SetupMatrices(refdef)
+            # Build projection and view matrices
+            aspect = width / max(height, 1)
+            proj = _make_projection_matrix(fov_y, aspect, 1.0, 4096.0)
+            view = _make_view_matrix(vieworg, viewangles[0], viewangles[1], viewangles[2])
+
+            # Upload matrices to shader uniforms (transpose for column-major)
+            prog = gl_context.bsp_program
+            if prog:
+                prog['u_proj'].write(proj.T.tobytes())
+                prog['u_view'].write(view.T.tobytes())
+                prog['u_texture'].value = 0
+                prog['u_lightmap'].value = 1
+                prog['u_fullbright'].value = 1.0  # 1.0 = full bright, 0.0 = use lightmap
 
         # Render world
         rdflags = refdef.rdflags if hasattr(refdef, 'rdflags') else 0
         if not (rdflags & 1):  # RDF_NOWORLDMODEL = 1
             try:
-                # Get world model
                 worldmodel = refdef.worldmodel if hasattr(refdef, 'worldmodel') else None
                 if worldmodel and hasattr(gl_rsurf, 'R_DrawWorld'):
                     gl_rsurf.R_DrawWorld(worldmodel)
@@ -187,17 +260,16 @@ def R_RenderFrame(refdef_in):
             pass
 
         # Draw 2D HUD
-        try:
-            from . import gl_draw
-            gl_draw.DrawCrosshair()
-
-            # Draw HUD stats (if available)
-            player_state = getattr(refdef, 'player_state', None)
-            if player_state:
-                gl_draw.SCR_DrawHUD(player_state)
-
-        except Exception as e:
-            pass
+        # Disabled: gl_draw.py uses fixed-function OpenGL incompatible with Core Profile
+        # TODO: Port 2D drawing to ModernGL shaders
+        # try:
+        #     from . import gl_draw
+        #     gl_draw.DrawCrosshair()
+        #     player_state = getattr(refdef, 'player_state', None)
+        #     if player_state:
+        #         gl_draw.SCR_DrawHUD(player_state)
+        # except Exception as e:
+        #     pass
 
         # End frame
         glw_imp.GLimp_EndFrame()
@@ -206,6 +278,8 @@ def R_RenderFrame(refdef_in):
 
     except Exception as e:
         print(f"R_RenderFrame error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

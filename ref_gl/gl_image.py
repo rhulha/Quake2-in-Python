@@ -40,7 +40,7 @@ def LoadWal(filename):
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         if project_root not in sys.path:
             sys.path.insert(0, project_root)
-        from quake2.files import FS_LoadFile
+        from quake2.files import FS_LoadFile, fs_searchpaths
         global palette_data
 
         if palette_data is None:
@@ -388,10 +388,14 @@ def GL_FindImage(name, _type):
         elif name.endswith('.pcx'):
             tex_id = LoadPcx(name)
         else:
-            # Try WAL first
+            # Try WAL first, with and without "textures/" prefix
             tex_id = LoadWal(f"{name}.wal")
+            if tex_id is None and not name.startswith("textures/"):
+                tex_id = LoadWal(f"textures/{name}.wal")
             if tex_id is None:
                 tex_id = LoadPcx(f"{name}.pcx")
+            if tex_id is None and not name.startswith("textures/"):
+                tex_id = LoadPcx(f"textures/{name}.pcx")
 
         if tex_id is not None:
             texture_cache[name] = tex_id
@@ -423,7 +427,7 @@ def Draw_GetPalette():
 
 def GL_InitImages():
     """Initialize texture system"""
-    global texture_cache, textures
+    global texture_cache, textures, palette_data
     texture_cache = {}
     textures = []
 

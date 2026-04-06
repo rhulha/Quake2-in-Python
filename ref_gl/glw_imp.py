@@ -36,8 +36,9 @@ def VID_CreateWindow(window_width, window_height, is_fullscreen=False):
             pygame.init()
 
         # Set OpenGL attributes before window creation
-        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 1)
+        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
+        pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
         pygame.display.gl_set_attribute(pygame.GL_DOUBLEBUFFER, 1)
         pygame.display.gl_set_attribute(pygame.GL_DEPTH_SIZE, 24)
         pygame.display.gl_set_attribute(pygame.GL_RED_SIZE, 8)
@@ -89,37 +90,17 @@ def GLimp_Init(hinstance=None, wndproc=None):
 
 
 def GLimp_InitGL():
-    """Initialize OpenGL state"""
+    """Initialize OpenGL state via ModernGL"""
     try:
-        # Set clear color
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-
-        # Enable depth test
-        glEnable(GL_DEPTH_TEST)
-        glDepthFunc(GL_LEQUAL)
-
-        # Enable back-face culling
-        glEnable(GL_CULL_FACE)
-        glCullFace(GL_BACK)   # Cull back faces, show front faces
-        glFrontFace(GL_CCW)   # Counter-clockwise is front-facing
-
-        # Set up projection
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-
-        # Disable lighting for immediate mode rendering (we'll use explicit colors)
-        glDisable(GL_LIGHTING)
-
-        # Texturing
-        glEnable(GL_TEXTURE_2D)
-
-        Com_Printf("OpenGL initialized\n")
+        from . import gl_context
+        gl_context.init()
+        Com_Printf("ModernGL 3.3 Core context initialized\n")
         return True
 
     except Exception as e:
         Com_Printf(f"GLimp_InitGL error: {e}\n")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -137,9 +118,9 @@ def GLimp_Shutdown():
 
 def GLimp_BeginFrame(camera_separation=0):
     """Prepare for frame rendering"""
-    # Set up modelview matrix
-    glMatrixMode(GL_MODELVIEW)
-    glLoadIdentity()
+    # Modern GL 3.3 Core uses matrix uniforms instead of matrix stack
+    # Matrix setup is now done in gl_rmain.py
+    pass
 
 
 def GLimp_EndFrame():

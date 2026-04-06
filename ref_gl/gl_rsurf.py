@@ -1,135 +1,74 @@
 """
-gl_rsurf.py - OpenGL BSP surface rendering
-Renders brush models and BSP surfaces
+gl_rsurf_new.py - ModernGL BSP surface rendering
+Replaces immediate-mode glBegin/glEnd with VBO-based batch rendering.
+Builds all face geometry once at map load, renders in one call per frame.
 """
 
 import struct
-from OpenGL.GL import *
-from wrapper_qpy.linker import LinkEmptyFunctions
+import numpy as np
+import moderngl
 
-LinkEmptyFunctions(globals(), ["Com_Printf"])
+# Module-level state
+_world_vaos = {}  # id(model) -> dict of {tex_name: (vao, vbo, vert_count)}
+_world_vbos = {}  # id(model) -> lm_tex (lightmap atlas texture)
+_mgl_textures = {}  # gl_tex_id -> moderngl.Texture wrapper
+_lm_atlas = None
 
-TEXINFO_SIZE_BSP = 76
-
-# ===== Surface Rendering =====
-
-def R_DrawWorld(worldmodel):
-    """Draw world geometry"""
-    try:
-        glColor4f(1.0, 1.0, 1.0, 1.0)
-        glDisable(GL_BLEND)
-        glShadeModel(GL_FLAT)
-
-        if not worldmodel:
-            return
-
-        # Render all faces
-        if hasattr(worldmodel, 'faces') and worldmodel.faces:
-            face_count = 0
-            vertices_rendered = 0
-            for face in worldmodel.faces:
-                try:
-                    v_count = _draw_face(worldmodel, face)
-                    if v_count > 0:
-                        face_count += 1
-                        vertices_rendered += v_count
-                except:
-                    pass
-
-    except Exception as e:
-        Com_Printf(f"R_DrawWorld error: {e}\n")
+VERTEX_STRIDE = 7  # x, y, z, u, v, lm_u, lm_v
+TEXINFO_SIZE_BSP = 76  # Size of a texinfo entry in BSP file
 
 
-def R_DrawBrushModel(model):
-    """Draw brush model (inline models like doors, platforms)"""
-    try:
-        R_DrawWorld(model)
-    except Exception as e:
-        Com_Printf(f"R_DrawBrushModel error: {e}\n")
+class LightmapBlock:
+    """Lightmap atlas for efficient rendering - RGB format for ModernGL"""
+    def __init__(self, width=1024, height=1024):
+        self.width = width
+        self.height = height
+        self.data = bytearray(width * height * 3)  # RGB (not RGBA)
+        self.next_x = 0
+        self.next_y = 0
+        self.row_height = 0
+
+    def allocate(self, w, h):
+        """Allocate block in lightmap atlas"""
+        if self.next_x + w > self.width:
+            self.next_x = 0
+            self.next_y += self.row_height
+            self.row_height = 0
+
+        if self.next_y + h > self.height:
+            # Wrap to start (proper fix: multiple atlases)
+            self.next_x = 0
+            self.next_y = 0
+            self.row_height = 0
+
+        x, y = self.next_x, self.next_y
+        self.next_x += w
+        self.row_height = max(self.row_height, h)
+        return x, y
 
 
-def _draw_face(model, face):
-    """Draw a single face, return vertex count if rendered"""
-    try:
-        # Get face geometry
-        if not hasattr(face, '__getitem__') or 'num_edges' not in face:
-            return 0
-
-        first_edge = face['first_edge']
-        num_edges = face['num_edges']
-
-        if num_edges <= 0 or num_edges > 256:  # Sanity check
-            return 0
-
-        # Get vertices
-        vertices = []
-
-        try:
-            # Parse surfedges and edges
-            if hasattr(model, 'lump_surfedges') and hasattr(model, 'lump_edges') and hasattr(model, 'vertices'):
-                # Read surfedge indices for this face
-                surfedges = []
-                for i in range(num_edges):
-                    se_idx = first_edge + i
-                    # Each surfedge is a 4-byte signed integer
-                    if se_idx * 4 + 4 <= len(model.lump_surfedges):
-                        se = struct.unpack_from('<i', model.lump_surfedges, se_idx * 4)[0]
-                        surfedges.append(se)
-
-                # For each surfedge, get the actual edge and vertex
-                for se in surfedges:
-                    edge_idx = abs(se)
-                    # Each edge is 2 uint16s = 4 bytes
-                    if edge_idx * 4 + 4 <= len(model.lump_edges):
-                        v0, v1 = struct.unpack_from('<HH', model.lump_edges, edge_idx * 4)
-                        # Use v0 if surfedge is positive, v1 if negative
-                        v_idx = v0 if se >= 0 else v1
-
-                        if 0 <= v_idx < len(model.vertices):
-                            v = model.vertices[v_idx]
-                            vertices.append([float(v[0]), float(v[1]), float(v[2])])
-        except Exception as e:
-            pass
-
-        # Render polygon
-        if len(vertices) >= 3:
-            texinfo = _get_face_texinfo(model, face)
-            tex_id = _get_face_texture_id(texinfo)
-
-            if tex_id is not None:
-                glEnable(GL_TEXTURE_2D)
-                glColor4f(1.0, 1.0, 1.0, 1.0)
-
-                try:
-                    from . import gl_image
-                    gl_image.GL_BindTexture(tex_id)
-                except Exception:
-                    pass
-            else:
-                glDisable(GL_TEXTURE_2D)
-                glColor4f(0.75, 0.75, 0.75, 1.0)
-
-            glBegin(GL_POLYGON)
-            for v in vertices:
-                if tex_id is not None:
-                    u, t = _compute_uv(v, texinfo)
-                    glTexCoord2f(u, t)
-                glVertex3f(v[0], v[1], v[2])
-            glEnd()
-
-            if tex_id is not None:
-                glDisable(GL_TEXTURE_2D)
-
-            return len(vertices)
-
-        return 0
-
-    except Exception as e:
-        return 0
+def _resolve_face_vertices(model, first_edge, num_edges):
+    """Extract face vertices from model's edge/surfedge lumps"""
+    verts = []
+    for i in range(num_edges):
+        se_off = (first_edge + i) * 4
+        if se_off + 4 > len(model.lump_surfedges):
+            break
+        se = struct.unpack_from('<i', model.lump_surfedges, se_off)[0]
+        edge_idx = abs(se)
+        e_off = edge_idx * 4
+        if e_off + 4 > len(model.lump_edges):
+            continue
+        v0, v1 = struct.unpack_from('<HH', model.lump_edges, e_off)
+        v_idx = v0 if se >= 0 else v1
+        if 0 <= v_idx < len(model.vertices):
+            v = model.vertices[v_idx]
+            verts.append([float(v[0]), float(v[1]), float(v[2])])
+    return verts
 
 
 def _parse_texinfo_entry(lump_data, texinfo_idx):
-    """Parse one BSP texinfo entry (76 bytes) from raw texinfo lump."""
+    """Parse one texinfo entry (76 bytes) from raw texinfo lump."""
     try:
         if texinfo_idx < 0:
             return None
@@ -143,7 +82,6 @@ def _parse_texinfo_entry(lump_data, texinfo_idx):
         t_axis = list(struct.unpack_from('<fff', lump_data, offset + 16))
         t_off = struct.unpack_from('<f', lump_data, offset + 28)[0]
         flags = struct.unpack_from('<I', lump_data, offset + 32)[0]
-        value = struct.unpack_from('<I', lump_data, offset + 36)[0]
         texture = lump_data[offset + 40:offset + 72].decode('latin-1', errors='ignore').rstrip('\x00')
         nexttexinfo = struct.unpack_from('<i', lump_data, offset + 72)[0]
 
@@ -153,275 +91,294 @@ def _parse_texinfo_entry(lump_data, texinfo_idx):
             't_axis': t_axis,
             't_off': t_off,
             'flags': flags,
-            'value': value,
             'texture': texture,
             'nexttexinfo': nexttexinfo,
         }
-    except Exception:
-        return None
-
-
-def _get_face_texinfo(model, face):
-    """Get parsed texinfo for a face using model lump cache."""
-    try:
-        texinfo_idx = face.get('texinfo', -1) if isinstance(face, dict) else -1
-        if texinfo_idx < 0:
-            return None
-
-        if not hasattr(model, 'lump_texinfo') or not model.lump_texinfo:
-            return None
-
-        if not hasattr(model, '_texinfo_cache') or model._texinfo_cache is None:
-            model._texinfo_cache = {}
-
-        if texinfo_idx not in model._texinfo_cache:
-            model._texinfo_cache[texinfo_idx] = _parse_texinfo_entry(model.lump_texinfo, texinfo_idx)
-
-        return model._texinfo_cache.get(texinfo_idx)
-    except Exception:
-        return None
-
-
-def _get_face_texture_id(texinfo):
-    """Resolve texinfo texture name to an OpenGL texture id."""
-    try:
-        if not texinfo:
-            return None
-
-        texture_name = texinfo.get('texture', '')
-        if not texture_name:
-            return None
-
-        from . import gl_image
-        return gl_image.GL_FindImage(texture_name, 1)
-    except Exception:
-        return None
-
-
-def _compute_uv(vertex, texinfo):
-    """Compute texture coordinates using BSP texinfo vectors; fallback to planar mapping."""
-    try:
-        if texinfo:
-            s_axis = texinfo.get('s_axis', [1.0, 0.0, 0.0])
-            t_axis = texinfo.get('t_axis', [0.0, 1.0, 0.0])
-            s_off = float(texinfo.get('s_off', 0.0))
-            t_off = float(texinfo.get('t_off', 0.0))
-
-            s = (vertex[0] * s_axis[0] + vertex[1] * s_axis[1] + vertex[2] * s_axis[2] + s_off) / 64.0
-            t = (vertex[0] * t_axis[0] + vertex[1] * t_axis[1] + vertex[2] * t_axis[2] + t_off) / 64.0
-            return s, t
-    except Exception:
-        pass
-
-    return vertex[0] / 128.0, vertex[1] / 128.0
-
-
-def _read_surfedges(lump_data, offset, count):
-    """Read surfedge indices"""
-    try:
-        surfedges = []
-        for i in range(count):
-            idx = offset + i
-            if idx * 4 + 4 <= len(lump_data):
-                se = struct.unpack_from('<i', lump_data, idx * 4)[0]
-                surfedges.append(se)
-        return surfedges
     except:
-        return []
+        return None
 
 
-def _read_edges(lump_data, surfedge_indices):
-    """Read edges from lump"""
+def _get_texinfo(model, texinfo_idx):
+    """Get texinfo by index, with caching."""
+    if not hasattr(model, '_texinfo_cache') or model._texinfo_cache is None:
+        model._texinfo_cache = {}
+
+    if texinfo_idx not in model._texinfo_cache:
+        model._texinfo_cache[texinfo_idx] = _parse_texinfo_entry(model.lump_texinfo, texinfo_idx)
+
+    return model._texinfo_cache.get(texinfo_idx)
+
+
+def _uv(v, s_axis, t_axis, s_off, t_off, tex_w=64.0, tex_h=64.0):
+    """Compute diffuse texture UVs"""
+    s = (v[0]*s_axis[0] + v[1]*s_axis[1] + v[2]*s_axis[2] + s_off) / tex_w
+    t = (v[0]*t_axis[0] + v[1]*t_axis[1] + v[2]*t_axis[2] + t_off) / tex_h
+    return s, t
+
+
+def _lm_uv(v, s_axis, t_axis, s_off, t_off, lm_x, lm_y, lm_w, lm_h, atlas_w, atlas_h):
+    """Compute lightmap UVs"""
+    s = (v[0]*s_axis[0] + v[1]*s_axis[1] + v[2]*s_axis[2] + s_off)
+    t = (v[0]*t_axis[0] + v[1]*t_axis[1] + v[2]*t_axis[2] + t_off)
+    # Normalize into lightmap block at 16 units per luxel (Quake 2 standard)
+    lu = (lm_x + (s / 16.0)) / atlas_w
+    lv = (lm_y + (t / 16.0)) / atlas_h
+    return lu, lv
+
+
+def _alloc_lightmap(lm_block, model, face, texinfo):
+    """Compute lightmap extents and allocate in atlas"""
+    first_edge = face['first_edge']
+    num_edges = face['num_edges']
+    verts = _resolve_face_vertices(model, first_edge, num_edges)
+
+    if len(verts) < 3:
+        return None
+
+    s_axis = texinfo.get('s_axis', [1, 0, 0])
+    t_axis = texinfo.get('t_axis', [0, 1, 0])
+    s_off = float(texinfo.get('s_off', 0))
+    t_off = float(texinfo.get('t_off', 0))
+
+    min_s = min_t = float('inf')
+    max_s = max_t = float('-inf')
+    for v in verts:
+        s = v[0]*s_axis[0] + v[1]*s_axis[1] + v[2]*s_axis[2] + s_off
+        t = v[0]*t_axis[0] + v[1]*t_axis[1] + v[2]*t_axis[2] + t_off
+        min_s = min(min_s, s)
+        max_s = max(max_s, s)
+        min_t = min(min_t, t)
+        max_t = max(max_t, t)
+
+    lm_w = max(1, int((max_s - min_s) / 16.0) + 1)
+    lm_h = max(1, int((max_t - min_t) / 16.0) + 1)
+    lm_w = min(lm_w, 18)
+    lm_h = min(lm_h, 18)
+
+    lm_x, lm_y = lm_block.allocate(lm_w, lm_h)
+    return lm_x, lm_y, lm_w, lm_h
+
+
+def _fill_lightmap(lm_block, model, face, lm_x, lm_y, lm_w, lm_h):
+    """Copy raw lightdata into atlas"""
+    lightofs = face.get('lightofs', -1)
+    if lightofs < 0 or not model.lightdata:
+        # Fill with mid-grey
+        for row in range(lm_h):
+            for col in range(lm_w):
+                px = ((lm_y + row) * lm_block.width + (lm_x + col)) * 3
+                lm_block.data[px:px+3] = b'\x80\x80\x80'
+        return
+
+    src = model.lightdata
+    for row in range(lm_h):
+        for col in range(lm_w):
+            src_idx = lightofs + (row * lm_w + col) * 3
+            dst_idx = ((lm_y + row) * lm_block.width + (lm_x + col)) * 3
+            if src_idx + 3 <= len(src) and dst_idx + 3 <= len(lm_block.data):
+                lm_block.data[dst_idx:dst_idx+3] = src[src_idx:src_idx+3]
+
+
+def _get_or_wrap_texture(gl_tex_id):
+    """Wrap OpenGL tex_id as ModernGL Texture"""
+    if gl_tex_id is None or gl_tex_id == 0:
+        return None
+    if gl_tex_id in _mgl_textures:
+        return _mgl_textures[gl_tex_id]
+
+    from . import gl_context
+    ctx = gl_context.ctx
+    if not ctx:
+        return None
+
     try:
-        edges = []
-        for se in surfedge_indices:
-            edge_idx = abs(se)
-            if edge_idx * 4 + 4 <= len(lump_data):
-                v0 = struct.unpack_from('<H', lump_data, edge_idx * 4)[0]
-                v1 = struct.unpack_from('<H', lump_data, edge_idx * 4 + 2)[0]
-                edges.append([v0 if se >= 0 else v1, v1 if se >= 0 else v0])
-        return edges
-    except:
-        return []
-
-
-# ===== Lightmap Management =====
-
-lightmap_atlas = None
-lightmap_block = None
-
-
-class LightmapBlock:
-    """Lightmap atlas block for efficient rendering"""
-    def __init__(self, width=1024, height=1024):
-        self.width = width
-        self.height = height
-        self.data = bytearray(width * height * 4)  # RGBA
-        self.next_x = 0
-        self.next_y = 0
-        self.row_height = 0
-        self.tex_id = None
-
-    def allocate(self, width, height):
-        """Allocate block in lightmap atlas"""
-        if self.next_x + width > self.width:
-            # Move to next row
-            self.next_x = 0
-            self.next_y += self.row_height
-            self.row_height = 0
-
-        if self.next_y + height > self.height:
-            # Lightmap full, upload and reset
-            self.upload()
-            self.reset()
-
-        x = self.next_x
-        y = self.next_y
-        self.next_x += width
-        self.row_height = max(self.row_height, height)
-
-        return x, y
-
-    def upload(self):
-        """Upload lightmap to GPU"""
-        try:
-            if self.tex_id is None:
-                self.tex_id = glGenTextures(1)
-
-            glBindTexture(GL_TEXTURE_2D, self.tex_id)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                         self.width, self.height, 0,
-                         GL_RGBA, GL_UNSIGNED_BYTE,
-                         bytes(self.data))
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        except:
-            pass
-
-    def reset(self):
-        """Reset block for next allocation"""
-        self.data = bytearray(self.width * self.height * 4)
-        self.next_x = 0
-        self.next_y = 0
-        self.row_height = 0
-
-
-def GL_BeginBuildingLightmaps():
-    """Start lightmap building"""
-    global lightmap_block
-    lightmap_block = LightmapBlock()
-
-
-def GL_EndBuildingLightmaps():
-    """Finish lightmap building"""
-    global lightmap_block
-    if lightmap_block:
-        lightmap_block.upload()
-
-
-def GL_CreateSurfaceLightmap(surf):
-    """Allocate lightmap for surface"""
-    try:
-        if not lightmap_block:
-            GL_BeginBuildingLightmaps()
-
-        # For now, just allocate space (minimal lightmap)
-        lm_x, lm_y = lightmap_block.allocate(16, 16)
-
-        # Store lightmap coordinates in surface
-        if isinstance(surf, dict):
-            surf['lm_x'] = lm_x
-            surf['lm_y'] = lm_y
-
+        mgl_tex = ctx.external_texture(gl_tex_id, (64, 64), 4)
+        _mgl_textures[gl_tex_id] = mgl_tex
+        return mgl_tex
     except Exception as e:
-        Com_Printf(f"GL_CreateSurfaceLightmap error: {e}\n")
+        # Silently fail - texture might not be loaded yet
+        return None
 
 
-def R_MarkLeaves():
-    """Mark visible leaves using PVS"""
-    pass
+def R_BuildWorldBuffers(worldmodel):
+    """Build VAO/VBO for all BSP faces at map load time"""
+    from . import gl_context, gl_image
+
+    model_key = id(worldmodel)
+    if model_key in _world_vaos:
+        return  # Already built
+
+    ctx = gl_context.ctx
+    prog = gl_context.bsp_program
+    if not ctx or not prog:
+        return
+
+    lm_block = LightmapBlock()
+    batches = {}  # tex_name -> list of float vertices
+
+    SURF_NODRAW = 0x80
+    batch_count = 0
+    faces_rejected_edges = 0
+    faces_rejected_texinfo = 0
+    faces_rejected_nodraw = 0
+    faces_rejected_texname = 0
+    faces_rejected_verts = 0
+
+    for i, face in enumerate(worldmodel.faces):
+        first_edge = face.get('first_edge', 0)
+        num_edges = face.get('num_edges', 0)
+        if num_edges < 3:
+            faces_rejected_edges += 1
+            continue
+
+        # Get texinfo
+        texinfo_idx = face.get('texinfo', 0)
+        texinfo = _get_texinfo(worldmodel, texinfo_idx)
+        if not texinfo:
+            faces_rejected_texinfo += 1
+            continue
+
+        # Skip NODRAW faces
+        if texinfo.get('flags', 0) & SURF_NODRAW:
+            faces_rejected_nodraw += 1
+            continue
+
+        tex_name = texinfo.get('texture', '')
+        if not tex_name:
+            faces_rejected_texname += 1
+            continue
+
+        # Resolve vertices
+        verts = _resolve_face_vertices(worldmodel, first_edge, num_edges)
+        if len(verts) < 3:
+            faces_rejected_verts += 1
+            continue
+
+        # Allocate lightmap
+        lm_alloc = _alloc_lightmap(lm_block, worldmodel, face, texinfo)
+        if not lm_alloc:
+            continue
+        lm_x, lm_y, lm_w, lm_h = lm_alloc
+        _fill_lightmap(lm_block, worldmodel, face, lm_x, lm_y, lm_w, lm_h)
+
+        # Get texture
+        tex_id = gl_image.GL_FindImage(tex_name, 1)
+
+        # UV axes
+        s_axis = texinfo.get('s_axis', [1, 0, 0])
+        t_axis = texinfo.get('t_axis', [0, 1, 0])
+        s_off = float(texinfo.get('s_off', 0))
+        t_off = float(texinfo.get('t_off', 0))
+
+        # Fan triangulate
+        if tex_name not in batches:
+            batches[tex_name] = []
+        buf = batches[tex_name]
+
+        v0 = verts[0]
+        for i in range(1, len(verts) - 1):
+            for vi in [v0, verts[i], verts[i+1]]:
+                u, v = _uv(vi, s_axis, t_axis, s_off, t_off)
+                lu, lv = _lm_uv(vi, s_axis, t_axis, s_off, t_off, lm_x, lm_y, lm_w, lm_h,
+                                lm_block.width, lm_block.height)
+                buf.extend([vi[0], vi[1], vi[2], u, v, lu, lv])
+
+    # Upload lightmap atlas
+    lm_data = bytes(lm_block.data)
+    lm_tex = ctx.texture((lm_block.width, lm_block.height), 3, data=lm_data, dtype='f1')
+    lm_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+
+    # Build VAOs per texture batch
+    vaos = {}
+    for tex_name, flat in batches.items():
+        if not flat:
+            continue
+        arr = np.array(flat, dtype=np.float32)
+        vbo = ctx.buffer(arr.tobytes())
+        vao = ctx.vertex_array(prog,
+                                [(vbo, '3f 2f 2f', 'in_position', 'in_texcoord', 'in_lm_coord')])
+        vert_count = len(flat) // VERTEX_STRIDE
+        vaos[tex_name] = (vao, vbo, vert_count)
+
+    _world_vaos[model_key] = vaos
+    _world_vbos[model_key] = lm_tex
 
 
-def R_SetFrustum():
-    """Extract frustum planes from matrices"""
-    pass
+def R_DrawWorld(worldmodel):
+    """Render world model - ModernGL version"""
+    from . import gl_context, gl_image
+    import moderngl
 
+    ctx = gl_context.ctx
+    prog = gl_context.bsp_program
+    if not ctx or not prog:
+        return
 
-def R_RenderBrushModel(model):
-    """Render brush model with fullbright"""
-    R_DrawWorld(model)
-
-
-def DrawGLPoly(poly_verts):
-    """Draw a polygon"""
-    try:
-        if len(poly_verts) < 3:
+    model_key = id(worldmodel)
+    if model_key not in _world_vaos:
+        R_BuildWorldBuffers(worldmodel)
+        if model_key not in _world_vaos:
             return
 
-        glBegin(GL_POLYGON)
-        for v in poly_verts:
-            glVertex3f(v[0], v[1], v[2])
-        glEnd()
-    except:
-        pass
+    vaos = _world_vaos[model_key]
+    lm_tex = _world_vbos.get(model_key)
 
+    if lm_tex:
+        lm_tex.use(location=1)
+
+    for tex_name, (vao, vbo, vert_count) in vaos.items():
+        tex_id = gl_image.GL_FindImage(tex_name, 1)
+        mgl_tex = _get_or_wrap_texture(tex_id)
+        if mgl_tex:
+            mgl_tex.use(location=0)
+        vao.render(moderngl.TRIANGLES)
+
+
+def R_FreeWorldBuffers(model=None):
+    """Free GPU buffers"""
+    model_key = id(model) if model else None
+    keys = [model_key] if model_key else list(_world_vaos.keys())
+    for k in keys:
+        if k in _world_vaos:
+            for tex_name, (vao, vbo, _) in _world_vaos[k].items():
+                vao.release()
+                vbo.release()
+            del _world_vaos[k]
+        if k in _world_vbos:
+            _world_vbos[k].release()
+            del _world_vbos[k]
+    _mgl_textures.clear()
+
+
+# Keep old stubs for compatibility
+def R_DrawBrushModel(model):
+    """Brush model rendering - TODO"""
+    pass
+
+def GL_BeginBuildingLightmaps():
+    """Start lightmap building - TODO"""
+    pass
+
+def GL_EndBuildingLightmaps():
+    """End lightmap building - TODO"""
+    pass
+
+def R_MarkLeaves():
+    """Mark visible leaves - TODO"""
+    pass
+
+def R_SetFrustum():
+    """Set frustum - TODO"""
+    pass
+
+def DrawGLPoly(poly_verts):
+    """Draw polygon - TODO"""
+    pass
 
 def DrawTextureChains():
-    """Render surfaces grouped by texture"""
+    """Draw texture chains - TODO"""
     pass
-
 
 def R_DrawAlphaSurfaces():
-    """Draw transparent surfaces"""
-    pass
-
-
-def GL_SubdivideSurface(face):
-    """Subdivide large surfaces"""
-    pass
-
-
-def R_BuildLightMap(surf):
-    """Build lightmap for surface"""
-    pass
-
-
-def R_BlendLightmaps():
-    """Blend lightmaps into surfaces"""
-    pass
-
-
-def GL_RenderLightmappedPoly(surf):
-    """Render lightmapped polygon"""
-    pass
-
-
-def R_TextureAnimation(texinfo):
-    """Get animated texture frame"""
-    try:
-        if isinstance(texinfo, dict):
-            return texinfo.get('imageindex', 0)
-        return 0
-    except:
-        return 0
-
-
-def R_ClearSkyBox():
-    """Clear skybox"""
-    glClearColor(0.5, 0.5, 0.5, 1.0)
-    glClear(GL_COLOR_BUFFER_BIT)
-
-
-def DrawSkyBox():
-    """Draw skybox"""
-    pass
-
-
-def R_RecursiveWorldNode(node, refdef):
-    """Recursively traverse BSP tree for rendering"""
-    pass
-
-
-def RecursiveLightPoint(node, start, end):
-    """Find light value at point"""
+    """Draw alpha surfaces - TODO"""
     pass

@@ -8,6 +8,8 @@ read through the code.
 
 We use ModernGL.
 
+no software renderer
+
 ## Rules
 * `Quick, not fast` - Q2 is heavily optimized in the right places, but we only care about transfering the logic here. If speed was an issue we would not have been using Python.
 * `Quote the author` - One of the goals of this project is to try to use Python for it's readability, but still encourage people to read and possibly modify the original code afterwards. Try to make the code look as much as the original.

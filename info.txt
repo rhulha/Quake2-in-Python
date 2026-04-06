@@ -41,3 +41,10 @@ Image loading path is partially incomplete too (for example TGA TODO) in gl_imag
 So: nothing is “wrong” with your setup; the renderer is still in a debug/unfinished state.
 If you want, I can help you implement the first practical step to get past green: texture coordinates + texture bind in _draw_face, then DrawTextureChains for BSP textures.
 
+
+
+Port 2D HUD (gl_draw.py) to ModernGL
+Test lightmap rendering (currently disabled with u_fullbright=1.0)
+Port MD2 model rendering (gl_mesh.py)
+Profile and verify FPS improvement
+
