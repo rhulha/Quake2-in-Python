@@ -148,28 +148,19 @@ def SCR_DrawCrosshair():
     return _ViewState.crosshair
 
 
+_last_printed_pos = None
+_frame_counter = 0
+
 def V_RenderView(fov_x=90.0, width=800, height=600):
     """Build refdef and render frame"""
-    global client
+    global client, _last_printed_pos, _frame_counter
+    _frame_counter += 1
 
     if not _ViewState.prepared:
         CL_PrepRefresh()
 
-    # Get player position from server state (for single-player).
-    # View angles come from local input state so mouse look is responsive.
-    try:
-        from . import sv_main
-        if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
-            player = sv_main.server.edicts[0]  # Entity 0 is the player
-            if player:
-                if isinstance(player, dict):
-                    _ViewState.vieworg = player.get('origin', [0, 0, 0])
-                elif hasattr(player, 'origin') and hasattr(player, 'angles'):
-                    _ViewState.vieworg = list(player.origin) if hasattr(player.origin, '__iter__') else [0, 0, 0]
-    except Exception as e:
-        pass
-
-    # Local camera angles from input system.
+    # Local camera angles and movement from input system.
+    # Use client-side movement instead of waiting for server updates (single-player camera control)
     try:
         from . import cl_input
         _ViewState.viewangles = list(cl_input._State.viewangles)
