@@ -187,16 +187,28 @@ def _get_or_wrap_texture(gl_tex_id):
         return _mgl_textures[gl_tex_id]
 
     from . import gl_context
+    from OpenGL.GL import glBindTexture, glGetTexLevelParameteriv, GL_TEXTURE_2D, GL_TEXTURE_WIDTH, GL_TEXTURE_HEIGHT
+
     ctx = gl_context.ctx
     if not ctx:
         return None
 
     try:
-        mgl_tex = ctx.external_texture(gl_tex_id, (64, 64), 4)
+        # Query actual texture dimensions from OpenGL
+        glBindTexture(GL_TEXTURE_2D, gl_tex_id)
+        width = glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH)
+        height = glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT)
+
+        # Clamp to reasonable sizes (WAL textures are typically 64-512)
+        width = max(1, min(width, 512))
+        height = max(1, min(height, 512))
+
+        # Wrap with proper ModernGL signature: (obj, size, components, samples, dtype)
+        mgl_tex = ctx.external_texture(gl_tex_id, (width, height), 4, samples=0, dtype='f1')
         _mgl_textures[gl_tex_id] = mgl_tex
         return mgl_tex
     except Exception as e:
-        # Silently fail - texture might not be loaded yet
+        # Silently fail - texture wrapping not critical
         return None
 
 
