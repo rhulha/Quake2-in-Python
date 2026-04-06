@@ -148,13 +148,9 @@ def SCR_DrawCrosshair():
     return _ViewState.crosshair
 
 
-_last_printed_pos = None
-_frame_counter = 0
-
 def V_RenderView(fov_x=90.0, width=800, height=600):
     """Build refdef and render frame"""
-    global client, _last_printed_pos, _frame_counter
-    _frame_counter += 1
+    global client
 
     if not _ViewState.prepared:
         CL_PrepRefresh()
@@ -172,13 +168,7 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
             old_vieworg = list(_ViewState.vieworg)
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
 
-            # Debug: Show movement if any keys are pressed
-            if cmd.forwardmove != 0 or cmd.sidemove != 0 or cmd.upmove != 0:
-                fwd = f"FWD={cmd.forwardmove:.0f}" if cmd.forwardmove > 0 else f"BACK={-cmd.forwardmove:.0f}" if cmd.forwardmove < 0 else ""
-                side = f"LEFT={-cmd.sidemove:.0f}" if cmd.sidemove < 0 else f"RIGHT={cmd.sidemove:.0f}" if cmd.sidemove > 0 else ""
-                up = f"UP={cmd.upmove:.0f}" if cmd.upmove > 0 else f"DOWN={-cmd.upmove:.0f}" if cmd.upmove < 0 else ""
-                movement_str = " ".join(filter(None, [fwd, side, up]))
-                print(f"*** MOVING: {movement_str}  pos: {[f'{x:.1f}' for x in old_vieworg]} -> {[f'{x:.1f}' for x in _ViewState.vieworg]}")
+            # Position updated - will be used by renderer in refdef
         except Exception as move_err:
             print(f"[MOVEMENT ERROR] {move_err}")
     except Exception as e:
