@@ -100,7 +100,8 @@ def GLimp_InitGL():
 
         # Enable back-face culling
         glEnable(GL_CULL_FACE)
-        glCullFace(GL_BACK)
+        glCullFace(GL_BACK)   # Cull back faces, show front faces
+        glFrontFace(GL_CCW)   # Counter-clockwise is front-facing
 
         # Set up projection
         glMatrixMode(GL_PROJECTION)

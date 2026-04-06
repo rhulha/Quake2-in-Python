@@ -160,10 +160,14 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
         from . import sv_main
         if sv_main.server.edicts and len(sv_main.server.edicts) > 0:
             player = sv_main.server.edicts[0]  # Entity 0 is the player
-            if player and hasattr(player, 'origin') and hasattr(player, 'angles'):
-                _ViewState.vieworg = list(player.origin) if hasattr(player.origin, '__iter__') else [0, 0, 0]
-                _ViewState.viewangles = list(player.angles) if hasattr(player.angles, '__iter__') else [0, 0, 0]
-    except:
+            if player:
+                if isinstance(player, dict):
+                    _ViewState.vieworg = player.get('origin', [0, 0, 0])
+                    _ViewState.viewangles = player.get('angles', [0, 0, 0])
+                elif hasattr(player, 'origin') and hasattr(player, 'angles'):
+                    _ViewState.vieworg = list(player.origin) if hasattr(player.origin, '__iter__') else [0, 0, 0]
+                    _ViewState.viewangles = list(player.angles) if hasattr(player.angles, '__iter__') else [0, 0, 0]
+    except Exception as e:
         pass
 
     # Load world model if map changed

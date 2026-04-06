@@ -73,7 +73,7 @@ def R_SetupViewport(width, height, fov_y=75.0):
     glLoadIdentity()
 
     aspect = width / height if height > 0 else 1.0
-    near = 4.0
+    near = 1.0  # Very small near plane to see close geometry
     far = 4096.0
 
     # Use perspective with proper FOV
@@ -106,7 +106,7 @@ def R_SetupMatrices(refdef):
 
 def R_ClearScreen():
     """Clear framebuffer"""
-    glClearColor(0.2, 0.2, 0.2, 1.0)
+    glClearColor(0.3, 0.3, 0.5, 1.0)  # Slightly bluish background
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
 
@@ -129,6 +129,9 @@ def R_RenderFrame(refdef_in):
         height = refdef.height if hasattr(refdef, 'height') else 600
         fov_y = refdef.fov_y if hasattr(refdef, 'fov_y') else 75.0
 
+        vieworg = refdef.vieworg if hasattr(refdef, 'vieworg') else [0, 0, 0]
+        viewangles = refdef.viewangles if hasattr(refdef, 'viewangles') else [0, 0, 0]
+
         # Begin frame
         glw_imp.GLimp_BeginFrame(0)
 
@@ -150,7 +153,7 @@ def R_RenderFrame(refdef_in):
                 if worldmodel and hasattr(gl_rsurf, 'R_DrawWorld'):
                     gl_rsurf.R_DrawWorld(worldmodel)
             except Exception as e:
-                pass
+                print(f"[GL_RMAIN] World render error: {e}")
 
         # Render entities
         try:

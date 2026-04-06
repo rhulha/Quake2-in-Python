@@ -179,6 +179,54 @@ def SV_Map_f():
         except Exception as e:
             Com_Printf(f"Note: Entity spawning not available: {e}\n")
 
+        # Create player entity at entity 0
+        # Find info_player_start spawn point from entity string
+        player_spawn = [1350.0, 1400.0, 200.0]  # Default for q2dm1
+        player_angles = [0.0, 0.0, 0.0]
+
+        try:
+            from .cmodel import CM_EntityString
+            entity_string = CM_EntityString()
+
+            if entity_string:
+                # Parse entity string looking for info_player_start
+                import re
+                entities = entity_string.split('}')
+                found_spawn = False
+                for entity_text in entities:
+                    if 'info_player_start' in entity_text:
+                        # Extract origin
+                        origin_match = re.search(r'"origin"\s*"([^"]+)"', entity_text)
+                        if origin_match:
+                            parts = origin_match.group(1).split()
+                            player_spawn = [float(p) for p in parts[:3]]
+                            found_spawn = True
+                        # Extract angle
+                        angle_match = re.search(r'"angle"\s*"([^"]+)"', entity_text)
+                        if angle_match:
+                            player_angles[1] = float(angle_match.group(1))
+                        break
+                if found_spawn:
+                    Com_Printf(f"Found info_player_start at {player_spawn}\n")
+        except Exception as e:
+            Com_Printf(f"Note: Could not parse spawn point from entities: {e}\n")
+
+        player = {
+            'number': 0,
+            'classname': 'player',
+            'inuse': True,
+            'origin': list(player_spawn),
+            'angles': list(player_angles),
+            'velocity': [0, 0, 0],
+            'health': 100,
+            'armor': 0,
+            'solid': 1,
+            'svflags': 0,
+        }
+        server.edicts[0] = player
+        server.num_edicts = max(server.num_edicts, 1)
+        Com_Printf(f"Player spawned at {player_spawn}\n")
+
         server.state = 2  # Running
         server.mapname = mapname
         server.time = 0.0

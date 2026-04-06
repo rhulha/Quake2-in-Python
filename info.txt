@@ -1,0 +1,10 @@
+Quake2 game resources: D:\SteamLibrary\steamapps\common\Quake 2
+
+Quake2 source code: C:\BackupNo\Coding\Projects\Quake-2
+
+Q2 BSPParser written in Python:
+C:\BackupYes\Coding\Projects\Private\Games\FirstPersonShooter\BSPParserPythonQ2
+
+
+Here are all the game resources unpacked: C:\Action\id\q2unpacked
+

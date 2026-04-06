@@ -14,29 +14,23 @@ LinkEmptyFunctions(globals(), ["Com_Printf"])
 def R_DrawWorld(worldmodel):
     """Draw world geometry"""
     try:
-        glColor3f(1.0, 1.0, 1.0)
+        glColor4f(1.0, 1.0, 1.0, 1.0)
         glDisable(GL_BLEND)
-
-        # Draw test square (same as working one before)
-        glBegin(GL_QUADS)
-        glColor3f(1.0, 0.0, 0.0)
-        glVertex3f(-1, -1, -5)
-        glColor3f(0.0, 1.0, 0.0)
-        glVertex3f(1, -1, -5)
-        glColor3f(0.0, 0.0, 1.0)
-        glVertex3f(1, 1, -5)
-        glColor3f(1.0, 1.0, 0.0)
-        glVertex3f(-1, 1, -5)
-        glEnd()
+        glShadeModel(GL_FLAT)
 
         if not worldmodel:
             return
 
         # Render all faces
         if hasattr(worldmodel, 'faces') and worldmodel.faces:
+            face_count = 0
+            vertices_rendered = 0
             for face in worldmodel.faces:
                 try:
-                    _draw_face(worldmodel, face)
+                    v_count = _draw_face(worldmodel, face)
+                    if v_count > 0:
+                        face_count += 1
+                        vertices_rendered += v_count
                 except:
                     pass
 
@@ -62,30 +56,43 @@ def _draw_face(model, face):
         first_edge = face['first_edge']
         num_edges = face['num_edges']
 
-        if num_edges <= 0:
+        if num_edges <= 0 or num_edges > 256:  # Sanity check
             return 0
 
         # Get vertices
         vertices = []
 
         try:
-            # Parse surfedges and edges on the fly
+            # Parse surfedges and edges
             if hasattr(model, 'lump_surfedges') and hasattr(model, 'lump_edges') and hasattr(model, 'vertices'):
-                surfedges = _read_surfedges(model.lump_surfedges, first_edge, num_edges)
-                edges = _read_edges(model.lump_edges, surfedges)
+                # Read surfedge indices for this face
+                surfedges = []
+                for i in range(num_edges):
+                    se_idx = first_edge + i
+                    # Each surfedge is a 4-byte signed integer
+                    if se_idx * 4 + 4 <= len(model.lump_surfedges):
+                        se = struct.unpack_from('<i', model.lump_surfedges, se_idx * 4)[0]
+                        surfedges.append(se)
 
-                for edge in edges:
-                    if isinstance(edge, (list, tuple)) and len(edge) >= 1:
-                        v_idx = edge[0]
-                        if isinstance(v_idx, int) and 0 <= v_idx < len(model.vertices):
+                # For each surfedge, get the actual edge and vertex
+                for se in surfedges:
+                    edge_idx = abs(se)
+                    # Each edge is 2 uint16s = 4 bytes
+                    if edge_idx * 4 + 4 <= len(model.lump_edges):
+                        v0, v1 = struct.unpack_from('<HH', model.lump_edges, edge_idx * 4)
+                        # Use v0 if surfedge is positive, v1 if negative
+                        v_idx = v0 if se >= 0 else v1
+
+                        if 0 <= v_idx < len(model.vertices):
                             v = model.vertices[v_idx]
                             vertices.append([float(v[0]), float(v[1]), float(v[2])])
-        except:
+        except Exception as e:
             pass
 
         # Render polygon
         if len(vertices) >= 3:
-            glColor3f(0.8, 0.8, 0.8)  # Light gray color
+            # Use bright green so it's obviously visible against blue background
+            glColor3f(0.2, 1.0, 0.2)  # Bright green color
             glBegin(GL_POLYGON)
             for v in vertices:
                 glVertex3f(v[0], v[1], v[2])
