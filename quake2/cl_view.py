@@ -156,6 +156,7 @@ def _find_spawn_point():
         estr = cmodel.entity_string
         if not estr:
             return None
+        fallback = None
         # Parse entity blocks: { "key" "value" ... }
         i = 0
         while i < len(estr):
@@ -185,10 +186,15 @@ def _find_spawn_point():
                 if origin_str:
                     parts = origin_str.split()
                     if len(parts) == 3:
-                        return [float(parts[0]), float(parts[1]), float(parts[2])]
+                        origin = [float(parts[0]), float(parts[1]), float(parts[2])]
+                        if not keys.get('targetname'):
+                            # Default start (not a level-transition landmark) - use it
+                            return origin
+                        if fallback is None:
+                            fallback = origin
     except Exception:
         pass
-    return None
+    return fallback
 
 
 def V_RenderView(fov_x=90.0, width=800, height=600):

@@ -193,19 +193,30 @@ def SV_Map_f():
                 import re
                 entities = entity_string.split('}')
                 found_spawn = False
+                fallback_spawn = None
+                fallback_angle = None
                 for entity_text in entities:
                     if 'info_player_start' in entity_text:
                         # Extract origin
                         origin_match = re.search(r'"origin"\s*"([^"]+)"', entity_text)
+                        angle_match = re.search(r'"angle"\s*"([^"]+)"', entity_text)
+                        is_default = not re.search(r'"targetname"\s*"[^"]+"', entity_text)
                         if origin_match:
                             parts = origin_match.group(1).split()
-                            player_spawn = [float(p) for p in parts[:3]]
-                            found_spawn = True
-                        # Extract angle
-                        angle_match = re.search(r'"angle"\s*"([^"]+)"', entity_text)
-                        if angle_match:
-                            player_angles[1] = float(angle_match.group(1))
-                        break
+                            origin = [float(p) for p in parts[:3]]
+                            angle = float(angle_match.group(1)) if angle_match else 0.0
+                            if is_default:
+                                player_spawn = origin
+                                player_angles[1] = angle
+                                found_spawn = True
+                                break
+                            elif fallback_spawn is None:
+                                fallback_spawn = origin
+                                fallback_angle = angle
+                if not found_spawn and fallback_spawn is not None:
+                    player_spawn = fallback_spawn
+                    player_angles[1] = fallback_angle
+                    found_spawn = True
                 if found_spawn:
                     Com_Printf(f"Found info_player_start at {player_spawn}\n")
         except Exception as e:
