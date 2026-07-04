@@ -838,7 +838,7 @@ def Qcommon_Init(argc, argv):
         try:
             from .sv_main import server
             if not server.mapname:
-                Cbuf_AddText("map q2dm1\n")
+                Cbuf_AddText("map base1\n")
                 Cbuf_Execute()
         except:
             pass

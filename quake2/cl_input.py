@@ -46,6 +46,7 @@ class _State:
     screenshot_interval = 5.0  # Screenshot every 5 seconds
     velocity = [0.0, 0.0, 0.0]   # persistent world-space velocity (units/sec)
     on_ground = False
+    noclip = False
 
 
 in_klook = kbutton_t()
@@ -309,6 +310,20 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     right_x = math.sin(yaw_rad)
     right_y = -math.cos(yaw_rad)
 
+    if _State.noclip:
+        pitch_rad = math.radians(viewangles[PITCH])
+        cos_pitch = math.cos(pitch_rad)
+        fly_fwd = [fwd_x * cos_pitch, fwd_y * cos_pitch, -math.sin(pitch_rad)]
+
+        vel = [
+            fly_fwd[0] * cmd.forwardmove + right_x * cmd.sidemove,
+            fly_fwd[1] * cmd.forwardmove + right_y * cmd.sidemove,
+            fly_fwd[2] * cmd.forwardmove + cmd.upmove,
+        ]
+        _State.velocity = vel
+        _State.on_ground = False
+        return [vieworg[i] + vel[i] * frametime for i in range(3)]
+
     # --- Gravity ---
     _State.velocity[2] -= GRAVITY * frametime
 
@@ -436,6 +451,12 @@ def _handle_keydown(key):
     elif key == pygame.K_e:
         KeyDown(in_use)
 
+    # P - toggle noclip fly mode
+    elif key == pygame.K_p:
+        _State.noclip = not _State.noclip
+        _State.velocity = [0.0, 0.0, 0.0]
+        print("noclip ON" if _State.noclip else "noclip OFF")
+
     # Mouse button (attack)
     elif key == pygame.K_LMETA:
         KeyDown(in_attack)
@@ -443,6 +464,8 @@ def _handle_keydown(key):
     # ESC - menu (set key_dest_game)
     elif key == pygame.K_ESCAPE:
         _State.key_dest_game = False
+        pygame.mouse.set_visible(True)
+        pygame.event.set_grab(False)
 
     # F11 - toggle fullscreen
     elif key == pygame.K_F11:

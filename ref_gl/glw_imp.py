@@ -53,6 +53,9 @@ def VID_CreateWindow(window_width, window_height, is_fullscreen=False):
         window = pygame.display.set_mode((width, height), flags)
         pygame.display.set_caption("Quake 2")
 
+        pygame.mouse.set_visible(False)
+        pygame.event.set_grab(True)
+
         initialized = True
 
         Com_Printf(f"Created OpenGL window: {width}x{height} fullscreen={is_fullscreen}\n")
