@@ -265,25 +265,70 @@ def _trace(start, end):
     return None
 
 
-_SURF_EPSILON = 0.03125  # 1/32 unit — classic Quake epsilon push off surfaces
+_SURF_EPSILON = 0.25  # safety margin pushed off surfaces so next-frame traces don't start embedded
+_FLOOR_NORMAL_Z = 0.7  # planes steeper than this (facing up) count as ground
+_UNSTICK_STEP = 0.25
+_UNSTICK_MAX_DISTANCE = 64.0
+
+
+def _position_is_solid(position):
+    """Return whether the player box overlaps solid world geometry at *position*."""
+    tr = _trace(position, position)
+    return tr is not None and (tr.startsolid or tr.allsolid)
+
+
+def _unstick_position(position):
+    """Move an embedded player a small distance upward until its box is clear.
+
+    A player can begin exactly on a BSP plane.  The collision code classifies
+    that boundary as ``startsolid``; leaving the position unchanged then makes
+    every subsequent movement attempt fail in the same way.  Upward recovery
+    is the useful direction for this case because the common occurrence is a
+    player box intersecting the top of a floor.
+    """
+    candidate = list(position)
+    distance = _UNSTICK_STEP
+    while distance <= _UNSTICK_MAX_DISTANCE:
+        candidate[2] = position[2] + distance
+        if not _position_is_solid(candidate):
+            return candidate
+        distance += _UNSTICK_STEP
+
+    return list(position)
 
 
 def _slide_move(start, end):
-    """Move from start toward end, sliding along surfaces. Returns final position."""
+    """Move from start toward end, sliding along surfaces.
+    Returns (final position, floor plane normal or None if no floor was hit)."""
     tr = _trace(start, end)
     if tr is None:
-        return end
+        return end, None
     if tr.startsolid:
-        return start  # already in solid — don't move deeper
+        recovered = _unstick_position(start)
+        if recovered == list(start):
+            return start, None
+
+        # Preserve the intended displacement when the starting point was
+        # nudged out of a floor plane.
+        recovery_delta = [recovered[i] - start[i] for i in range(3)]
+        start = recovered
+        end = [end[i] + recovery_delta[i] for i in range(3)]
+        tr = _trace(start, end)
+        if tr is None:
+            return end, None
+        if tr.startsolid:
+            return start, None
     if tr.fraction == 1.0:
-        return end
+        return end, None
 
     hit = list(tr.endpos)
     if tr.plane is None:
-        return hit
+        return hit, None
 
     n = tr.plane['normal']
-    # Push slightly off the surface so next-frame traces don't start inside the brush
+    floor_normal = n if n[2] > _FLOOR_NORMAL_Z else None
+
+    # Push off the surface so next-frame traces don't start embedded in the brush
     hit = [hit[i] + n[i] * _SURF_EPSILON for i in range(3)]
 
     remaining = [end[i] - hit[i] for i in range(3)]
@@ -292,8 +337,10 @@ def _slide_move(start, end):
 
     tr2 = _trace(hit, slide_dest)
     if tr2 is None or tr2.fraction == 1.0:
-        return slide_dest
-    return list(tr2.endpos)
+        return slide_dest, floor_normal
+    if tr2.plane is not None and tr2.plane['normal'][2] > _FLOOR_NORMAL_Z:
+        floor_normal = tr2.plane['normal']
+    return list(tr2.endpos), floor_normal
 
 
 def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
@@ -340,16 +387,29 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     end = [vieworg[i] + _State.velocity[i] * frametime for i in range(3)]
 
     # --- Collision + slide ---
-    new_pos = _slide_move(vieworg, end)
+    new_pos, floor_normal = _slide_move(vieworg, end)
 
-    # --- Ground check (short downward trace - detection only, no position snap) ---
-    ground_end = [new_pos[0], new_pos[1], new_pos[2] - 2.0]
-    gtr = _trace(new_pos, ground_end)
-    if gtr is not None and (gtr.fraction < 1.0 or gtr.startsolid):
+    if floor_normal is not None:
+        # Landed on a floor-like plane this frame — stop falling immediately
         _State.on_ground = True
         _State.velocity[2] = 0.0
     else:
-        _State.on_ground = False
+        # --- Ground check (short downward trace) ---
+        ground_end = [new_pos[0], new_pos[1], new_pos[2] - 2.0]
+        gtr = _trace(new_pos, ground_end)
+        if gtr is not None and gtr.startsolid:
+            recovered = _unstick_position(new_pos)
+            if recovered != list(new_pos):
+                new_pos = recovered
+                gtr = _trace(new_pos, [new_pos[0], new_pos[1], new_pos[2] - 2.0])
+        if gtr is not None and (gtr.fraction < 1.0 or gtr.startsolid):
+            _State.on_ground = True
+            _State.velocity[2] = 0.0
+            if gtr.fraction < 1.0 and gtr.endpos is not None:
+                # Snap back onto the floor so tiny per-frame gravity dips don't accumulate
+                new_pos = [new_pos[0], new_pos[1], gtr.endpos[2] + _SURF_EPSILON]
+        else:
+            _State.on_ground = False
 
     return new_pos
 

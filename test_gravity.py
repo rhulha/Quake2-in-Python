@@ -25,6 +25,7 @@ if cmodel.num_models == 0:
 def find_spawn():
     estr = cmodel.entity_string
     i = 0
+    fallback = None
     while i < len(estr):
         si = estr.find('{', i)
         if si == -1:
@@ -50,8 +51,12 @@ def find_spawn():
         if keys.get('classname') == 'info_player_start':
             parts = keys.get('origin', '').split()
             if len(parts) == 3:
-                return [float(p) for p in parts]
-    return [0.0, 0.0, 0.0]
+                origin = [float(p) for p in parts]
+                if not keys.get('targetname'):
+                    return origin
+                if fallback is None:
+                    fallback = origin
+    return fallback or [0.0, 0.0, 0.0]
 
 spawn = find_spawn()
 print(f"Spawn point: {spawn}")

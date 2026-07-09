@@ -72,6 +72,7 @@ class CTrace:
         self.surface = None         # surface hit (not set by CM functions)
         self.plane = None           # surface normal and dist, only valid if fraction < 1.0
         self.entnum = 0             # entity the surface is a part of
+        self.endpos = None          # final position, set by CM_BoxTrace
 
 
 # ===== Map Loading =====
@@ -413,7 +414,7 @@ def CM_TestBoxInBrush(mins, maxs, p1, trace_obj, brush_idx):
         for j in range(3):
             if plane['normal'][j] > 0:
                 d -= mins[j]
-            else:
+            elif plane['normal'][j] < 0:
                 d += maxs[j]
 
         if d > 0:
@@ -477,7 +478,7 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2, trace_obj):
         if plane['normal'][i] > 0:
             d1 += trace.mins[i]   # mins[i] is negative → subtracts from d
             d2 += trace.mins[i]
-        else:
+        elif plane['normal'][i] < 0:
             d1 -= trace.maxs[i]   # maxs[i] is positive → subtracts from d
             d2 -= trace.maxs[i]
 
