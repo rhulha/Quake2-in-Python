@@ -197,7 +197,7 @@ def _find_spawn_point():
     return fallback
 
 
-def V_RenderView(fov_x=90.0, width=800, height=600):
+def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
     """Build refdef and render frame"""
     global client
 
@@ -219,7 +219,10 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
 
         # Apply WASD movement to camera position
         try:
-            cmd = cl_input.CL_CreateCmd()
+            # CL_Frame already created this command for the server. Reusing it
+            # is important: CL_KeyState consumes a key's frame time, so making
+            # a second command here would turn a Space press into upmove=0.
+            cmd = movement_cmd if movement_cmd is not None else cl_input.CL_CreateCmd()
             frametime = cl_input._State.frametime
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
 
@@ -245,6 +248,10 @@ def V_RenderView(fov_x=90.0, width=800, height=600):
                 from . import cl_input
                 cl_input._State.velocity = [0.0, 0.0, 0.0]
                 cl_input._State.on_ground = False
+                cl_input._State.jump_held = False
+                cl_input._State.jump_buffer = 0.0
+                cl_input._State.jump_requested = False
+                cl_input._State.jump_available = True
             except Exception:
                 pass
     except Exception as e:

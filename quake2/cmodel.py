@@ -305,6 +305,8 @@ def CM_TransformedPointContents(p, headnode, origin, angles):
 
 # ===== Box Tracing (Collision Detection) =====
 
+DIST_EPSILON = 0.03125  # 1/32 epsilon to keep floating point happy (Quake 2)
+
 def vec3_subtract(a, b):
     return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
 
@@ -371,14 +373,15 @@ def CM_ClipBoxToBrush(mins, maxs, p1, p2, trace_obj, brush_idx):
         if d1 <= 0 and d2 <= 0:
             continue
 
-        f = d1 / (d1 - d2)
         if d1 > d2:
-            # Entering through this plane
+            # Entering through this plane; back off so endpos never sits flush
+            f = (d1 - DIST_EPSILON) / (d1 - d2)
             if f > enterfrac:
                 enterfrac = f
                 clipplane = plane
         else:
             # Leaving through this plane
+            f = (d1 + DIST_EPSILON) / (d1 - d2)
             if f < leavefrac:
                 leavefrac = f
 
@@ -467,54 +470,53 @@ def CM_RecursiveHullCheck(num, p1f, p2f, p1, p2, trace_obj):
 
     node = nodes[num]
     plane = planes[node['plane_num']]
+    n = plane['normal']
 
-    # Calculate plane distance for both points
-    d1 = vec3_dot(p1, plane['normal']) - plane['dist']
-    d2 = vec3_dot(p2, plane['normal']) - plane['dist']
+    t1 = vec3_dot(p1, n) - plane['dist']
+    t2 = vec3_dot(p2, n) - plane['dist']
 
-    # Expand plane distance by box extents (Quake 2 AABB trace expansion)
-    # offset = dot(normal, extents) where extents[i] = -mins[i] if normal[i]>=0 else -maxs[i]
-    for i in range(3):
-        if plane['normal'][i] > 0:
-            d1 += trace.mins[i]   # mins[i] is negative → subtracts from d
-            d2 += trace.mins[i]
-        elif plane['normal'][i] < 0:
-            d1 -= trace.maxs[i]   # maxs[i] is positive → subtracts from d
-            d2 -= trace.maxs[i]
+    # Widen the segment symmetrically by the box extent projected onto the
+    # plane normal.  A one-sided shift here makes a straddling box look
+    # "entirely behind" the plane and skips the child holding the wall brush.
+    offset = (
+        abs(trace.extents[0] * n[0]) +
+        abs(trace.extents[1] * n[1]) +
+        abs(trace.extents[2] * n[2])
+    )
 
-    if d1 >= 0 and d2 >= 0:
-        # Both in front
+    if t1 >= offset and t2 >= offset:
         CM_RecursiveHullCheck(node['children'][0], p1f, p2f, p1, p2, trace_obj)
         return
 
-    if d1 < 0 and d2 < 0:
-        # Both behind
+    if t1 < -offset and t2 < -offset:
         CM_RecursiveHullCheck(node['children'][1], p1f, p2f, p1, p2, trace_obj)
         return
 
-    # Crosses plane
-    if d1 < 0:
+    # Crosses plane: put the crosspoint DIST_EPSILON on the near side
+    if t1 < t2:
+        idist = 1.0 / (t1 - t2)
         side = 1
-        f = (d1) / (d1 - d2)
+        frac2 = (t1 + offset + DIST_EPSILON) * idist
+        frac = (t1 - offset + DIST_EPSILON) * idist
+    elif t1 > t2:
+        idist = 1.0 / (t1 - t2)
+        side = 0
+        frac2 = (t1 - offset - DIST_EPSILON) * idist
+        frac = (t1 + offset + DIST_EPSILON) * idist
     else:
         side = 0
-        f = (d1) / (d1 - d2)
+        frac = 1.0
+        frac2 = 0.0
 
-    f = max(0, min(1, f))
+    frac = max(0.0, min(1.0, frac))
+    frac2 = max(0.0, min(1.0, frac2))
 
-    mid = [
-        p1[0] + f * (p2[0] - p1[0]),
-        p1[1] + f * (p2[1] - p1[1]),
-        p1[2] + f * (p2[2] - p1[2]),
-    ]
-
-    midf = p1f + f * (p2f - p1f)
-
+    midf = p1f + frac * (p2f - p1f)
+    mid = [p1[i] + frac * (p2[i] - p1[i]) for i in range(3)]
     CM_RecursiveHullCheck(node['children'][side], p1f, midf, p1, mid, trace_obj)
 
-    if trace_obj.fraction <= midf:
-        return  # near side hit something closer — skip far side
-
+    midf = p1f + frac2 * (p2f - p1f)
+    mid = [p1[i] + frac2 * (p2[i] - p1[i]) for i in range(3)]
     CM_RecursiveHullCheck(node['children'][1 - side], midf, p2f, mid, p2, trace_obj)
 
 
@@ -533,6 +535,11 @@ def CM_BoxTrace(start, end, mins, maxs, headnode, brushmask):
         'maxs': maxs,
         'p1': start,
         'p2': end,
+        'extents': [
+            max(-mins[0], maxs[0]),
+            max(-mins[1], maxs[1]),
+            max(-mins[2], maxs[2]),
+        ],
     })()
 
     # Check if starting point is solid

@@ -281,19 +281,22 @@ def CL_SendCommandToServer(cmd):
 
 def CL_SendCommand():
     if cls.state < 2:
-        return
+        return None
 
+    cmd = None
     try:
         from .cl_input import CL_SendCmd
         cmd = CL_SendCmd()
         if cmd is not None:
             CL_SendCommandToServer(cmd)
     except Exception:
-        return
+        return None
 
     while cls.reliable_commands:
         r = cls.reliable_commands.pop(0)
         cls.net_outgoing.append({"type": "cmd", "text": r, "time": _now()})
+
+    return cmd
 
 
 def CL_Frame(msec=0):
@@ -311,11 +314,11 @@ def CL_Frame(msec=0):
 
     CL_CheckForResend()
     CL_ReadPackets()
-    CL_SendCommand()
+    movement_cmd = CL_SendCommand()
 
     try:
         from .cl_view import V_RenderView
-        V_RenderView(fov_x=90.0, width=800, height=600)
+        V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=movement_cmd)
     except Exception:
         return
 

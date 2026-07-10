@@ -46,6 +46,10 @@ class _State:
     screenshot_interval = 5.0  # Screenshot every 5 seconds
     velocity = [0.0, 0.0, 0.0]   # persistent world-space velocity (units/sec)
     on_ground = False
+    jump_held = False            # prevents one press from auto-jumping on landing
+    jump_buffer = 0.0            # preserves a short tap until ground state catches up
+    jump_requested = False       # set directly by the Space key event
+    jump_available = True        # consumed by a jump and restored after landing
     noclip = False
 
 
@@ -252,6 +256,8 @@ GRAVITY = 800.0
 JUMP_SPEED = 270.0
 PLAYER_MINS = [-16.0, -16.0, -24.0]
 PLAYER_MAXS = [16.0, 16.0, 32.0]
+GROUND_CHECK_DISTANCE = 2.0
+JUMP_BUFFER_TIME = 0.1
 
 
 def _trace(start, end):
@@ -271,6 +277,23 @@ _UNSTICK_STEP = 0.25
 _UNSTICK_MAX_DISTANCE = 64.0
 
 
+def _has_ground_below(position):
+    """Return whether a walkable floor is immediately below the player."""
+    trace = _trace(
+        position,
+        [position[0], position[1], position[2] - GROUND_CHECK_DISTANCE],
+    )
+    if trace is None:
+        return False
+    if trace.startsolid:
+        return True
+    return (
+        trace.fraction < 1.0
+        and trace.plane is not None
+        and trace.plane['normal'][2] > _FLOOR_NORMAL_Z
+    )
+
+
 def _position_is_solid(position):
     """Return whether the player box overlaps solid world geometry at *position*."""
     tr = _trace(position, position)
@@ -286,6 +309,22 @@ def _unstick_position(position):
     is the useful direction for this case because the common occurrence is a
     player box intersecting the top of a floor.
     """
+    # Shallow embeds (flush against a wall or floor) are the common case, so
+    # first try small nudges in every axis direction — upward alone cannot
+    # free a box pressed into a wall.
+    directions = [(0, 0, 1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, -1)]
+    distance = _UNSTICK_STEP
+    while distance <= 2.0:
+        for dx, dy, dz in directions:
+            candidate = [
+                position[0] + dx * distance,
+                position[1] + dy * distance,
+                position[2] + dz * distance,
+            ]
+            if not _position_is_solid(candidate):
+                return candidate
+        distance += _UNSTICK_STEP
+
     candidate = list(position)
     distance = _UNSTICK_STEP
     while distance <= _UNSTICK_MAX_DISTANCE:
@@ -338,9 +377,15 @@ def _slide_move(start, end):
     tr2 = _trace(hit, slide_dest)
     if tr2 is None or tr2.fraction == 1.0:
         return slide_dest, floor_normal
-    if tr2.plane is not None and tr2.plane['normal'][2] > _FLOOR_NORMAL_Z:
-        floor_normal = tr2.plane['normal']
-    return list(tr2.endpos), floor_normal
+    final = list(tr2.endpos)
+    if tr2.plane is not None:
+        n2 = tr2.plane['normal']
+        if n2[2] > _FLOOR_NORMAL_Z:
+            floor_normal = n2
+        # Same push-off as the first hit: leaving the box flush against the
+        # second surface makes every following frame start solid (wedged).
+        final = [final[i] + n2[i] * _SURF_EPSILON for i in range(3)]
+    return final, floor_normal
 
 
 def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
@@ -369,15 +414,42 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
         ]
         _State.velocity = vel
         _State.on_ground = False
+        if cmd.upmove <= 0:
+            _State.jump_held = False
+            _State.jump_buffer = 0.0
+            _State.jump_requested = False
         return [vieworg[i] + vel[i] * frametime for i in range(3)]
 
     # --- Gravity ---
     _State.velocity[2] -= GRAVITY * frametime
 
     # --- Jump ---
-    if cmd.upmove > 0 and _State.on_ground:
+    # Match Quake 2's PMF_JUMP_HELD behavior: a jump starts on the first
+    # grounded command and requires releasing Space before another jump.
+    # The small buffer makes a normal tap reliable if the floor trace marks
+    # the player grounded one frame after the input arrives.
+    jump_input = cmd.upmove > 0 or _State.jump_requested
+    if not jump_input:
+        _State.jump_held = False
+    elif not _State.jump_held:
+        _State.jump_buffer = JUMP_BUFFER_TIME
+
+    if not _State.on_ground and _has_ground_below(vieworg):
+        _State.on_ground = True
+    if _State.on_ground:
+        _State.jump_available = True
+
+    if _State.jump_buffer > 0.0 and _State.jump_available and not _State.jump_held:
         _State.velocity[2] = JUMP_SPEED
         _State.on_ground = False
+        _State.jump_held = True
+        _State.jump_buffer = 0.0
+        _State.jump_requested = False
+        _State.jump_available = False
+    else:
+        _State.jump_buffer = max(0.0, _State.jump_buffer - frametime)
+        if _State.jump_buffer == 0.0:
+            _State.jump_requested = False
 
     # --- Horizontal WASD (set directly, no fly) ---
     _State.velocity[0] = fwd_x * cmd.forwardmove + right_x * cmd.sidemove
@@ -389,13 +461,18 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     # --- Collision + slide ---
     new_pos, floor_normal = _slide_move(vieworg, end)
 
-    if floor_normal is not None:
+    if _State.velocity[2] > 0.0:
+        # Ascending (jump in progress) — never re-ground or zero the impulse;
+        # a startsolid ground trace here would otherwise erase the jump.
+        _State.on_ground = False
+    elif floor_normal is not None:
         # Landed on a floor-like plane this frame — stop falling immediately
         _State.on_ground = True
         _State.velocity[2] = 0.0
+        _State.jump_available = True
     else:
         # --- Ground check (short downward trace) ---
-        ground_end = [new_pos[0], new_pos[1], new_pos[2] - 2.0]
+        ground_end = [new_pos[0], new_pos[1], new_pos[2] - GROUND_CHECK_DISTANCE]
         gtr = _trace(new_pos, ground_end)
         if gtr is not None and gtr.startsolid:
             recovered = _unstick_position(new_pos)
@@ -405,6 +482,7 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
         if gtr is not None and (gtr.fraction < 1.0 or gtr.startsolid):
             _State.on_ground = True
             _State.velocity[2] = 0.0
+            _State.jump_available = True
             if gtr.fraction < 1.0 and gtr.endpos is not None:
                 # Snap back onto the floor so tiny per-frame gravity dips don't accumulate
                 new_pos = [new_pos[0], new_pos[1], gtr.endpos[2] + _SURF_EPSILON]
@@ -453,6 +531,15 @@ def IN_Frame():
             elif event.type == pygame.MOUSEBUTTONUP:
                 _handle_mousebuttonup(event.button)
 
+        # Some OpenGL/fullscreen window managers occasionally fail to deliver
+        # a KEYDOWN event while the key state is still available.  Poll Space
+        # as a fallback so jumping does not depend on that one event.
+        try:
+            if pygame.key.get_pressed()[pygame.K_SPACE]:
+                _State.jump_requested = True
+        except pygame.error:
+            pass
+
         # Periodic screenshot
         current_time = time.time()
         if current_time - _State.last_screenshot_time >= _State.screenshot_interval:
@@ -498,6 +585,7 @@ def _handle_keydown(key):
     # Space - jump/up
     elif key == pygame.K_SPACE:
         KeyDown(in_up)
+        _State.jump_requested = True
 
     # Ctrl - crouch/down
     elif key == pygame.K_LCTRL or key == pygame.K_RCTRL:
