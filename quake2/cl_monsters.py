@@ -191,6 +191,7 @@ def _spawn_from_entities(entities):
             'death_start': None,
             'attack_start': None,
             'next_attack': None,     # set on first Update (reaction delay)
+            'moving': False,
         })
     return monsters
 
@@ -475,6 +476,13 @@ def _monster_frame(monster, model, index, now):
         if elapsed_frames < count:
             return first + elapsed_frames
         monster['attack_start'] = None
+
+    if monster.get('moving'):
+        first, count = _anim_range(path, model, 'run')
+        if count <= 1:
+            first, count = _anim_range(path, model, 'walk')
+        if count > 1:
+            return first + (int(now * ANIM_FPS) + index) % count
 
     first, count = _anim_range(path, model, 'stand')
     return first + (int(now * ANIM_FPS) + index) % count
