@@ -13,7 +13,9 @@ import time
 BUTTON_ATTACK = 1
 
 RF_WEAPONMODEL = 4
+RF_FULLBRIGHT = 8
 RF_DEPTHHACK = 16
+RF_TRANSLUCENT = 32
 
 ANIM_FPS = 10.0
 GRAVITY = 800.0
@@ -25,6 +27,10 @@ MUZZLE_UP = -8.0
 LASER_MODEL = "models/objects/laser/tris.md2"
 ROCKET_MODEL = "models/objects/rocket/tris.md2"
 GRENADE_MODEL = "models/objects/grenade/tris.md2"
+ROCKET_EXPLOSION_MODEL = "models/objects/r_explode/tris.md2"
+ROCKET_EXPLOSION_SOUND = "sound/weapons/rocklx1a.wav"
+EXPLOSION_FPS = 10.0
+EXPLOSION_FRAMES = 15
 
 # Fire animation frame ranges match the Weapon_Generic() calls in the
 # original p_weapon.c; idle is the first frame after the fire sequence.
@@ -84,7 +90,11 @@ WEAPONS = [
         'sound': "sound/weapons/rocklf1a.wav",
         'fire_first': 5, 'fire_last': 12, 'idle': 13,
         'cooldown': 0.8,
-        'projectile': {'model': ROCKET_MODEL, 'speed': 650.0, 'gravity': False},
+        'projectile': {
+            'model': ROCKET_MODEL, 'speed': 650.0, 'gravity': False,
+            'impact_model': ROCKET_EXPLOSION_MODEL,
+            'impact_sound': ROCKET_EXPLOSION_SOUND,
+        },
     },
     {
         'name': 'HyperBlaster',
@@ -121,6 +131,7 @@ class _WeaponState:
     last_fire_time = -1000.0
     fire_anim_start = None
     bolts = []  # dicts: {'origin', 'velocity', 'expire', 'model', 'gravity'}
+    explosions = []  # dicts: {'origin', 'start', 'model'}
 
 
 def SelectWeapon(index):
@@ -218,6 +229,8 @@ def _fire(weapon, vieworg, viewangles, now):
             'expire': now + BOLT_LIFETIME,
             'model': projectile['model'],
             'gravity': projectile['gravity'],
+            'impact_model': projectile.get('impact_model'),
+            'impact_sound': projectile.get('impact_sound'),
         })
     _WeaponState.last_fire_time = now
     _WeaponState.fire_anim_start = now
@@ -235,10 +248,59 @@ def _update_bolts(frametime, now):
         end = [start[i] + bolt['velocity'][i] * frametime for i in range(3)]
         tr = _trace(start, end)
         if tr is not None and (tr.fraction < 1.0 or tr.startsolid):
+            if bolt['impact_model']:
+                impact = getattr(tr, 'endpos', None)
+                if impact is None:
+                    fraction = max(0.0, min(1.0, float(tr.fraction)))
+                    impact = [start[i] + (end[i] - start[i]) * fraction for i in range(3)]
+                _WeaponState.explosions.append({
+                    'origin': list(impact),
+                    'start': now,
+                    'model': bolt['impact_model'],
+                })
+                if bolt['impact_sound']:
+                    _play_sound(bolt['impact_sound'])
             continue  # hit the world - projectile is gone
         bolt['origin'] = end
         alive.append(bolt)
     _WeaponState.bolts = alive
+
+
+def _explosion_entities(now):
+    """Advance rocket explosions and return their animated render entities."""
+    alive = []
+    entities = []
+    lifetime = (EXPLOSION_FRAMES - 1) / EXPLOSION_FPS
+    for explosion in _WeaponState.explosions:
+        elapsed = max(0.0, now - explosion['start'])
+        if elapsed >= lifetime:
+            continue
+
+        frame_time = elapsed * EXPLOSION_FPS
+        oldframe = int(frame_time)
+        frame = min(oldframe + 1, EXPLOSION_FRAMES - 1)
+        frame_fraction = frame_time - oldframe
+        skinnum = oldframe >> 1 if oldframe < 10 else (5 if oldframe < 13 else 6)
+        flags = RF_FULLBRIGHT
+        if oldframe >= 10:
+            flags |= RF_TRANSLUCENT
+
+        model = _get_model(explosion['model'])
+        if model:
+            entities.append({
+                'model': model,
+                'origin': list(explosion['origin']),
+                'angles': [0.0, 0.0, 0.0],
+                'frame': frame,
+                'oldframe': oldframe,
+                'backlerp': 1.0 - frame_fraction,
+                'skinnum': skinnum,
+                'alpha': (16.0 - oldframe) / 16.0,
+                'flags': flags,
+            })
+        alive.append(explosion)
+    _WeaponState.explosions = alive
+    return entities
 
 
 def _gun_frame(weapon, now):
@@ -264,7 +326,7 @@ def Update(frametime, vieworg, viewangles, cmd, now=None):
 
     _update_bolts(frametime, now)
 
-    entities = []
+    entities = _explosion_entities(now)
     for bolt in _WeaponState.bolts:
         model = _get_model(bolt['model'])
         if model:
