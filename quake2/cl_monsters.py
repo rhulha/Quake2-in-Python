@@ -19,6 +19,19 @@ STOP_RANGE = 160.0          # monsters hold position this close to the player
 STEP_HEIGHT = 18.0          # max stair step they can climb
 GROUND_SNAP = 64.0          # how far down to look for a floor after moving
 
+GIB_HEALTH = -40.0          # at or below this, the kill gibs instead of a death anim
+GIB_LIFETIME = 15.0
+GIB_BOUNCE = 0.4            # velocity kept after a bounce
+GIB_SOUND = "sound/misc/udeath.wav"
+GIB_MODELS = [
+    "models/objects/gibs/sm_meat/tris.md2",
+    "models/objects/gibs/sm_meat/tris.md2",
+    "models/objects/gibs/sm_meat/tris.md2",
+    "models/objects/gibs/sm_meat/tris.md2",
+    "models/objects/gibs/chest/tris.md2",
+    "models/objects/gibs/head2/tris.md2",
+]
+
 MONSTER_BOLT_MODEL = "models/objects/laser/tris.md2"
 MONSTER_BOLT_SPEED = 600.0
 MONSTER_BOLT_DAMAGE = 10
@@ -109,6 +122,7 @@ class _MonsterState:
     models = {}           # path -> loaded model or None
     anim_ranges = {}      # (path, prefix) -> (first_frame, frame_count)
     bolts = []            # monster shots: {'origin', 'velocity', 'expire'}
+    gibs = []             # flying chunks: {'origin', 'velocity', 'model', ...}
 
 
 class PlayerState:
@@ -255,12 +269,85 @@ def _segment_box_t(start, end, origin, mins, maxs):
     return tmin
 
 
+def _gib_monster(monster, now):
+    """Explode the monster into flying gibs (overkill death)."""
+    monster['state'] = 'gibbed'
+    center = [monster['origin'][0], monster['origin'][1],
+              monster['origin'][2] + monster['maxs'][2] * 0.5]
+    for model in GIB_MODELS:
+        _MonsterState.gibs.append({
+            'origin': list(center),
+            'velocity': [random.uniform(-200.0, 200.0),
+                         random.uniform(-200.0, 200.0),
+                         random.uniform(150.0, 400.0)],
+            'model': model,
+            'expire': now + GIB_LIFETIME,
+            'spawn': now,
+            'avelocity': [random.uniform(-400.0, 400.0),
+                          random.uniform(-400.0, 400.0)],
+            'resting': False,
+        })
+    _play_sound(GIB_SOUND)
+
+
 def _apply_damage(monster, damage, now):
     monster['health'] -= damage
-    if monster['health'] <= 0:
+    if monster['health'] > 0:
+        return
+    if monster['health'] <= GIB_HEALTH:
+        _gib_monster(monster, now)
+        print(f"{monster['classname']} gibbed")
+    else:
         monster['state'] = 'dying'
         monster['death_start'] = now
         print(f"{monster['classname']} killed")
+
+
+def _update_gibs(frametime, now):
+    from quake2.cl_weapon import GRAVITY
+    alive = []
+    for gib in _MonsterState.gibs:
+        if now >= gib['expire']:
+            continue
+        if not gib['resting']:
+            gib['velocity'][2] -= GRAVITY * frametime
+            start = gib['origin']
+            end = [start[i] + gib['velocity'][i] * frametime for i in range(3)]
+            tr = _trace(start, end)
+            if tr is not None and (tr.fraction < 1.0 or tr.startsolid):
+                # Bounce off whatever was hit, mostly killing the energy
+                endpos = getattr(tr, 'endpos', None)
+                if endpos is not None and not tr.startsolid:
+                    gib['origin'] = list(endpos)
+                gib['velocity'] = [v * GIB_BOUNCE for v in gib['velocity']]
+                gib['velocity'][2] = abs(gib['velocity'][2])
+                if sum(v * v for v in gib['velocity']) < 900.0:  # < 30 u/s: rest
+                    gib['velocity'] = [0.0, 0.0, 0.0]
+                    gib['resting'] = True
+            else:
+                gib['origin'] = end
+        alive.append(gib)
+    _MonsterState.gibs = alive
+
+
+def _gib_entities(now):
+    entities = []
+    for gib in _MonsterState.gibs:
+        model = _get_model(gib['model'])
+        if not model:
+            continue
+        t = now - gib['spawn']
+        if gib['resting']:
+            angles = [0.0, (gib['avelocity'][1] * 0.1) % 360.0, 0.0]
+        else:
+            angles = [(gib['avelocity'][0] * t) % 360.0,
+                      (gib['avelocity'][1] * t) % 360.0, 0.0]
+        entities.append({
+            'model': model,
+            'origin': list(gib['origin']),
+            'angles': angles,
+        })
+    return entities
 
 
 def DamageSegment(start, end, damage, now=None):
@@ -499,6 +586,7 @@ def _ensure_parsed():
     _MonsterState.entity_string = estr
     _MonsterState.monsters = _spawn_from_entities(parse_entities(estr or ""))
     _MonsterState.bolts = []
+    _MonsterState.gibs = []
     PlayerState.health = 100
     print(f"cl_monsters: spawned {len(_MonsterState.monsters)} monsters")
 
@@ -513,9 +601,12 @@ def Update(frametime, player_origin, now=None):
     player_eye = [player_origin[0], player_origin[1], player_origin[2] + VIEWHEIGHT]
     _update_ai(frametime, player_eye, now)
     _update_bolts(frametime, player_origin, now)
+    _update_gibs(frametime, now)
 
-    entities = []
+    entities = _gib_entities(now)
     for index, monster in enumerate(_MonsterState.monsters):
+        if monster['state'] == 'gibbed':
+            continue
         model = _get_model(monster['model_path'])
         if not model:
             continue
