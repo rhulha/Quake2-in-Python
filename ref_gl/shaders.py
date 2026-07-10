@@ -53,3 +53,35 @@ void main() {
     if (frag_color.a < 0.05) discard;
 }
 """
+
+MD2_VERT = """
+#version 330 core
+
+in vec3 in_position;
+in vec2 in_texcoord;
+
+uniform mat4 u_proj;
+uniform mat4 u_view;
+uniform mat4 u_model;
+
+out vec2 v_texcoord;
+
+void main() {
+    gl_Position = u_proj * u_view * u_model * vec4(in_position, 1.0);
+    v_texcoord = in_texcoord;
+}
+"""
+
+MD2_FRAG = """
+#version 330 core
+
+in vec2 v_texcoord;
+
+uniform sampler2D u_texture;
+
+out vec4 frag_color;
+
+void main() {
+    frag_color = texture(u_texture, v_texcoord);
+}
+"""

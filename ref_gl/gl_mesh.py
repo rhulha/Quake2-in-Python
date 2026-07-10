@@ -121,10 +121,10 @@ def Load_MD2(filename):
                 v_offset = vert_offset + i * 4
                 if v_offset + 4 <= len(data):
                     x, y, z, normal_idx = struct.unpack_from('BBBB', data, v_offset)
-                    # Unpack vertex (stored as signed bytes)
-                    x = (x - 128) / 128.0 * frame.scale[0] + frame.translate[0]
-                    y = (y - 128) / 128.0 * frame.scale[1] + frame.translate[1]
-                    z = (z - 128) / 128.0 * frame.scale[2] + frame.translate[2]
+                    # Unpack vertex (stored as unsigned bytes scaled per frame)
+                    x = x * frame.scale[0] + frame.translate[0]
+                    y = y * frame.scale[1] + frame.translate[1]
+                    z = z * frame.scale[2] + frame.translate[2]
                     frame.vertices.append(MD2Vertex(x, y, z, normal_idx))
 
             frames.append(frame)
@@ -137,10 +137,28 @@ def Load_MD2(filename):
                 v0, v1, v2, t0, t1, t2 = struct.unpack_from('<HHHHHH', data, offset)
                 triangles.append([(v0, t0), (v1, t1), (v2, t2)])
 
+        # Load texture coordinates (raw shorts, normalized by skin size)
+        texcoords = []
+        for tc_idx in range(header.num_texcoords):
+            offset = header.offset_texcoords + tc_idx * 4
+            if offset + 4 <= len(data):
+                s, t = struct.unpack_from('<hh', data, offset)
+                texcoords.append((s / max(header.skinwidth, 1), t / max(header.skinheight, 1)))
+
+        # Load skin names (64 bytes each)
+        skins = []
+        for skin_idx in range(header.num_skins):
+            offset = header.offset_skins + skin_idx * 64
+            name = data[offset:offset + 64].split(b'\x00')[0].decode('latin-1', errors='ignore')
+            if name:
+                skins.append(name)
+
         return {
             'header': header,
             'frames': frames,
             'triangles': triangles,
+            'texcoords': texcoords,
+            'skins': skins,
             'filename': filename,
         }
 

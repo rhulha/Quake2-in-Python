@@ -226,6 +226,15 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
             frametime = cl_input._State.frametime
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
 
+            # Weapon: firing, projectiles, and view model
+            try:
+                from . import cl_weapon
+                V_ClearScene()
+                for ent in cl_weapon.Update(frametime, _ViewState.vieworg, _ViewState.viewangles, cmd):
+                    V_AddEntity(ent)
+            except Exception as weapon_err:
+                print(f"[WEAPON ERROR] {weapon_err}")
+
         except Exception as move_err:
             print(f"[MOVEMENT ERROR] {move_err}")
     except Exception as e:

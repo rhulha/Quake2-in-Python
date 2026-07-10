@@ -7,6 +7,8 @@ import moderngl
 
 ctx = None
 bsp_program = None
+proj_matrix = None  # current frame projection matrix (set by gl_rmain)
+view_matrix = None  # current frame view matrix (set by gl_rmain)
 
 
 def init():

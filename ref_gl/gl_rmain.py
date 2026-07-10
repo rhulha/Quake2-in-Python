@@ -218,6 +218,10 @@ def R_RenderFrame(refdef_in):
             proj = _make_projection_matrix(fov_y, aspect, 1.0, 4096.0)
             view = _make_view_matrix(vieworg, viewangles[0], viewangles[1], viewangles[2])
 
+            # Share matrices with other render passes (MD2 models etc.)
+            gl_context.proj_matrix = proj
+            gl_context.view_matrix = view
+
             # Upload matrices to shader uniforms (transpose for column-major)
             prog = gl_context.bsp_program
             if prog:
@@ -292,43 +296,26 @@ def R_DrawEntitiesOnList():
     """Draw all entities in list"""
     try:
         from . import gl_model
-        from . import gl_mesh
+        from . import gl_md2
 
         if not refdef or not hasattr(refdef, 'entities'):
             return
 
         for ent in refdef.entities:
-            if not ent:
+            if not ent or not ent.model:
                 continue
 
-            # Skip if no model
-            if not ent.model:
-                continue
-
-            # Get model type
             model_type = ent.model.type if hasattr(ent.model, 'type') else None
 
-            # Draw based on model type
             try:
                 if model_type == 2:  # MODEL_ALIAS = 2 (MD2)
-                    gl_mesh.R_DrawAliasModel(ent)
+                    gl_md2.R_DrawAliasModel(ent)
                 elif model_type == 3:  # MODEL_SPRITE = 3
                     R_DrawSpriteModel(ent)
                 elif model_type == 1:  # MODEL_BRUSH = 1
                     gl_model.R_DrawBrushModel(ent)
-                else:
-                    # Fallback - draw a placeholder
-                    glPushMatrix()
-                    glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
-                    R_DrawNullModel()
-                    glPopMatrix()
-
             except Exception as e:
-                # Draw null model as fallback
-                glPushMatrix()
-                glTranslatef(ent.origin[0], ent.origin[1], ent.origin[2])
-                R_DrawNullModel()
-                glPopMatrix()
+                print(f"R_DrawEntitiesOnList: draw error for {ent.model.name}: {e}")
 
     except Exception as e:
         print(f"R_DrawEntitiesOnList error: {e}")
