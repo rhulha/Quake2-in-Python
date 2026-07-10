@@ -6,6 +6,7 @@ Handles initialization, frame rendering, and view setup
 import sys
 import os
 import math
+import moderngl
 import numpy as np
 from OpenGL.GL import *
 from OpenGL.GL import glFrustum as GLFrustum
@@ -23,6 +24,23 @@ glstate = {
     'currenttextures': [0, 0],
     'currentmatrix': None,
 }
+
+_particle_program = None
+_particle_vao = None
+_particle_vbo = None
+_particle_capacity = 0
+_particle_texture = None
+
+_PARTICLE_DOT_TEXTURE = (
+    (0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 0, 1, 1, 0, 0, 0, 0),
+    (0, 1, 1, 1, 1, 0, 0, 0),
+    (0, 1, 1, 1, 1, 0, 0, 0),
+    (0, 0, 1, 1, 0, 0, 0, 0),
+    (0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 0, 0, 0, 0, 0, 0, 0),
+    (0, 0, 0, 0, 0, 0, 0, 0),
+)
 
 # ===== Matrix Helpers for ModernGL =====
 
@@ -358,14 +376,174 @@ def R_CullBox(mins, maxs):
 
 def R_DrawParticles():
     """Draw particle system"""
-    # TODO: Implement particle rendering
-    pass
+    particles = getattr(refdef, 'particles', None)
+    if not particles:
+        return
+
+    GL_DrawParticles(len(particles), particles, None)
+
+
+def _particle_basis_from_view():
+    """Return world-space right/up/forward camera vectors from the active view matrix."""
+    from . import gl_context
+
+    if gl_context.view_matrix is None:
+        return None, None, None
+
+    world_from_camera = np.linalg.inv(gl_context.view_matrix[:3, :3])
+    right = world_from_camera[:, 0].astype(np.float32)
+    up = world_from_camera[:, 1].astype(np.float32)
+    forward = (-world_from_camera[:, 2]).astype(np.float32)
+    return right, up, forward
+
+
+def _build_particle_vertex_data(particles, camera_origin, right, up, forward):
+    """Expand particles into camera-facing textured triangles."""
+    if not particles:
+        return np.zeros((0, 9), dtype=np.float32)
+
+    base_up = np.asarray(up, dtype=np.float32) * 1.5
+    base_right = np.asarray(right, dtype=np.float32) * 1.5
+    camera_origin = np.asarray(camera_origin, dtype=np.float32)
+    forward = np.asarray(forward, dtype=np.float32)
+
+    rows = []
+    for particle in particles:
+        origin = np.asarray(getattr(particle, 'origin', [0.0, 0.0, 0.0]), dtype=np.float32)
+        color = getattr(particle, 'color', [255, 255, 255])
+        alpha = float(getattr(particle, 'alpha', 1.0))
+        rgba = [
+            float(color[0]) / 255.0,
+            float(color[1]) / 255.0,
+            float(color[2]) / 255.0,
+            max(0.0, min(1.0, alpha)),
+        ]
+
+        distance_along_view = float(np.dot(origin - camera_origin, forward))
+        if distance_along_view < 20.0:
+            scale = 1.0
+        else:
+            scale = 1.0 + distance_along_view * 0.004
+
+        up_offset = base_up * scale
+        right_offset = base_right * scale
+
+        p0 = origin
+        p1 = origin + up_offset
+        p2 = origin + right_offset
+
+        rows.append([p0[0], p0[1], p0[2], 0.0625, 0.0625, *rgba])
+        rows.append([p1[0], p1[1], p1[2], 1.0625, 0.0625, *rgba])
+        rows.append([p2[0], p2[1], p2[2], 0.0625, 1.0625, *rgba])
+
+    return np.asarray(rows, dtype=np.float32)
+
+
+def _get_particle_program():
+    global _particle_program
+    from . import gl_context, shaders
+
+    if _particle_program is not None:
+        return _particle_program
+    if not gl_context.ctx:
+        return None
+
+    _particle_program = gl_context.ctx.program(
+        vertex_shader=shaders.PARTICLE_VERT,
+        fragment_shader=shaders.PARTICLE_FRAG,
+    )
+    return _particle_program
+
+
+def _ensure_particle_buffers(float_count):
+    global _particle_vao, _particle_vbo, _particle_capacity
+    from . import gl_context
+
+    ctx = gl_context.ctx
+    prog = _get_particle_program()
+    if not ctx or not prog:
+        return None, None
+
+    if _particle_vbo is None or float_count > _particle_capacity:
+        if _particle_vao is not None:
+            _particle_vao.release()
+            _particle_vao = None
+        if _particle_vbo is not None:
+            _particle_vbo.release()
+            _particle_vbo = None
+
+        _particle_capacity = max(float_count, 9)
+        _particle_vbo = ctx.buffer(reserve=_particle_capacity * 4, dynamic=True)
+        _particle_vao = ctx.vertex_array(
+            prog,
+            [(_particle_vbo, '3f 2f 4f', 'in_position', 'in_texcoord', 'in_color')],
+        )
+
+    return _particle_vbo, _particle_vao
+
+
+def _get_particle_texture():
+    global _particle_texture
+    if _particle_texture is not None:
+        return _particle_texture
+
+    R_InitParticleTexture()
+    return _particle_texture
 
 
 def GL_DrawParticles(num_particles, particles, colortable):
     """Draw particles at GL level"""
-    # TODO: Implement particle drawing
-    pass
+    del colortable
+
+    if num_particles <= 0 or not particles:
+        return
+
+    from . import gl_context
+
+    ctx = gl_context.ctx
+    prog = _get_particle_program()
+    if not ctx or not prog or gl_context.proj_matrix is None or gl_context.view_matrix is None:
+        return
+
+    texture = _get_particle_texture()
+    if not texture:
+        return
+
+    camera_origin = getattr(refdef, 'vieworg', [0.0, 0.0, 0.0]) if refdef is not None else [0.0, 0.0, 0.0]
+    right, up, forward = _particle_basis_from_view()
+    if right is None or up is None or forward is None:
+        return
+
+    vertex_data = _build_particle_vertex_data(particles[:num_particles], camera_origin, right, up, forward)
+    if vertex_data.size == 0:
+        return
+
+    vbo, vao = _ensure_particle_buffers(int(vertex_data.size))
+    if not vbo or not vao:
+        return
+
+    vbo.write(vertex_data.tobytes())
+
+    prog['u_proj'].write(gl_context.proj_matrix.T.tobytes())
+    prog['u_view'].write(gl_context.view_matrix.T.tobytes())
+    prog['u_texture'].value = 0
+    texture.use(location=0)
+
+    prev_depth_write = ctx.depth_write
+    prev_cull = ctx.cull_face
+
+    ctx.enable(moderngl.BLEND | moderngl.DEPTH_TEST)
+    ctx.blend_func = (moderngl.SRC_ALPHA, moderngl.ONE)
+    ctx.disable(moderngl.CULL_FACE)
+    ctx.depth_write = False
+    vao.render(moderngl.TRIANGLES, vertices=vertex_data.shape[0])
+    ctx.depth_write = prev_depth_write
+    if prev_cull == 'back':
+        ctx.enable(moderngl.CULL_FACE)
+        ctx.cull_face = prev_cull
+    else:
+        ctx.disable(moderngl.CULL_FACE)
+    ctx.disable(moderngl.BLEND)
 
 
 # ===== Post-Processing =====
@@ -388,9 +566,29 @@ def R_Trace(start, end, size):
     pass
 
 
-@TODO
 def R_InitParticleTexture():
-    pass
+    global _particle_texture
+
+    if _particle_texture is not None:
+        return _particle_texture
+
+    from . import gl_context
+
+    if not gl_context.ctx:
+        return None
+
+    pixels = np.zeros((8, 8, 4), dtype=np.uint8)
+    for x in range(8):
+        for y in range(8):
+            alpha = _PARTICLE_DOT_TEXTURE[x][y] * 255
+            pixels[y, x] = [255, 255, 255, alpha]
+
+    texture = gl_context.ctx.texture((8, 8), 4, pixels.tobytes())
+    texture.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    texture.repeat_x = False
+    texture.repeat_y = False
+    _particle_texture = texture
+    return _particle_texture
 
 
 @TODO

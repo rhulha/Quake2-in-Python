@@ -236,11 +236,15 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
 
             V_ClearScene()
 
-            # Monsters from the map's entity string
+            # Monsters: AI, their shots, and rendering
             try:
                 from . import cl_monsters
-                for ent in cl_monsters.GetEntities():
+                for ent in cl_monsters.Update(frametime, _ViewState.vieworg):
                     V_AddEntity(ent)
+                if cl_monsters.PlayerState.respawn_requested:
+                    cl_monsters.PlayerState.respawn_requested = False
+                    _ViewState.spawned = False  # re-spawn at info_player_start
+                    cl_input._State.velocity = [0.0, 0.0, 0.0]
             except Exception as monster_err:
                 print(f"[MONSTER ERROR] {monster_err}")
 

@@ -1,13 +1,32 @@
 """
-cl_monsters.py - Client-side monster spawning and rendering (single-player)
-Parses the loaded map's BSP entity string for monster entities and returns
-render entities for them each frame. Monsters idle-animate their "stand"
-frame sequence; no AI yet.
+cl_monsters.py - Client-side monster spawning, combat, and rendering
+Parses the loaded map's BSP entity string for monster entities. Monsters
+idle-animate, take damage from the player's weapons (DamageSegment), play
+their death animation, and attack: they turn toward the player and fire
+bolts when they have line of sight.
 """
 
+import math
+import random
 import time
 
 ANIM_FPS = 10.0
+TURN_SPEED = 240.0          # degrees/sec monsters turn toward the player
+SIGHT_RANGE = 1500.0
+VIEWHEIGHT = 22.0
+MOVE_SPEED = 120.0          # units/sec ground speed while chasing
+STOP_RANGE = 160.0          # monsters hold position this close to the player
+STEP_HEIGHT = 18.0          # max stair step they can climb
+GROUND_SNAP = 64.0          # how far down to look for a floor after moving
+
+MONSTER_BOLT_MODEL = "models/objects/laser/tris.md2"
+MONSTER_BOLT_SPEED = 600.0
+MONSTER_BOLT_DAMAGE = 10
+MONSTER_BOLT_LIFETIME = 3.0
+MONSTER_FIRE_SOUND = "sound/weapons/blastf1a.wav"
+PLAYER_PAIN_SOUND = "sound/player/male/pain100_1.wav"
+PLAYER_DEATH_SOUND = "sound/player/male/death1.wav"
+ATTACK_INTERVAL = (1.2, 2.5)  # seconds between monster shots (randomized)
 
 # NOT_MEDIUM: entities flagged out of skill 1 are skipped, otherwise maps
 # would spawn overlapping per-skill duplicates at the same spot.
@@ -41,12 +60,60 @@ MONSTERS = {
     'monster_tank_commander': ("models/monsters/tank/tris.md2", 2),
 }
 
+# Health values from the original g_*.c monster spawn functions.
+HEALTH = {
+    'monster_berserk': 240,
+    'monster_boss2': 2000,
+    'monster_brain': 300,
+    'monster_chick': 175,
+    'monster_flipper': 50,
+    'monster_floater': 200,
+    'monster_flyer': 50,
+    'monster_gladiator': 400,
+    'monster_gunner': 175,
+    'monster_hover': 240,
+    'monster_infantry': 100,
+    'monster_insane': 100,
+    'monster_jorg': 3000,
+    'monster_makron': 3000,
+    'monster_medic': 300,
+    'monster_mutant': 300,
+    'monster_parasite': 175,
+    'monster_soldier': 30,
+    'monster_soldier_light': 20,
+    'monster_soldier_ss': 40,
+    'monster_supertank': 1500,
+    'monster_tank': 750,
+    'monster_tank_commander': 1000,
+}
+
+# Bounding boxes (mins, maxs) for hit detection; default is the humanoid box.
+DEFAULT_BOX = ([-16.0, -16.0, -24.0], [16.0, 16.0, 32.0])
+BOXES = {
+    'monster_gladiator': ([-32.0, -32.0, -24.0], [32.0, 32.0, 64.0]),
+    'monster_mutant': ([-32.0, -32.0, -24.0], [32.0, 32.0, 48.0]),
+    'monster_tank': ([-32.0, -32.0, -16.0], [32.0, 32.0, 72.0]),
+    'monster_tank_commander': ([-32.0, -32.0, -16.0], [32.0, 32.0, 72.0]),
+    'monster_supertank': ([-64.0, -64.0, 0.0], [64.0, 64.0, 112.0]),
+    'monster_boss2': ([-56.0, -56.0, 0.0], [56.0, 56.0, 80.0]),
+    'monster_jorg': ([-80.0, -80.0, 0.0], [80.0, 80.0, 140.0]),
+    'monster_makron': ([-30.0, -30.0, 0.0], [30.0, 30.0, 90.0]),
+}
+
+PLAYER_BOX = ([-16.0, -16.0, -24.0], [16.0, 16.0, 32.0])
+
 
 class _MonsterState:
     entity_string = None  # entity string the monsters were parsed from
-    monsters = []         # dicts: {'classname', 'origin', 'angles', 'model_path', 'skin'}
+    monsters = []
     models = {}           # path -> loaded model or None
-    stand_ranges = {}     # path -> (first_frame, frame_count)
+    anim_ranges = {}      # (path, prefix) -> (first_frame, frame_count)
+    bolts = []            # monster shots: {'origin', 'velocity', 'expire'}
+
+
+class PlayerState:
+    health = 100
+    respawn_requested = False
 
 
 def parse_entities(entity_string):
@@ -110,12 +177,20 @@ def _spawn_from_entities(entities):
             yaw = 0.0
 
         model_path, skin = MONSTERS[classname]
+        mins, maxs = BOXES.get(classname, DEFAULT_BOX)
         monsters.append({
             'classname': classname,
             'origin': origin,
-            'angles': [0.0, yaw, 0.0],
+            'yaw': yaw,
             'model_path': model_path,
             'skin': skin,
+            'health': HEALTH.get(classname, 100),
+            'mins': mins,
+            'maxs': maxs,
+            'state': 'alive',        # alive -> dying -> dead
+            'death_start': None,
+            'attack_start': None,
+            'next_attack': None,     # set on first Update (reaction delay)
         })
     return monsters
 
@@ -132,22 +207,277 @@ def _get_model(path):
     return _MonsterState.models[path]
 
 
-def _stand_range(path, model):
-    """First frame and length of the model's 'stand' animation."""
-    if path not in _MonsterState.stand_ranges:
+def _anim_range(path, model, prefix):
+    """First frame and length of the model's first frame sequence whose
+    names start with *prefix* (e.g. 'stand', 'death', 'atta')."""
+    key = (path, prefix)
+    if key not in _MonsterState.anim_ranges:
         first, count = 0, 1
         try:
             frames = model.mesh_data['frames']
-            stand = [i for i, f in enumerate(frames) if f.name.lower().startswith('stand')]
-            if stand:
-                first = stand[0]
+            matching = [i for i, f in enumerate(frames)
+                        if f.name.lower().startswith(prefix)]
+            if matching:
+                first = matching[0]
                 count = 1
-                while count < len(stand) and stand[count] == first + count:
+                while count < len(matching) and matching[count] == first + count:
                     count += 1
         except Exception:
             pass
-        _MonsterState.stand_ranges[path] = (first, count)
-    return _MonsterState.stand_ranges[path]
+        _MonsterState.anim_ranges[key] = (first, count)
+    return _MonsterState.anim_ranges[key]
+
+
+def _stand_range(path, model):
+    return _anim_range(path, model, 'stand')
+
+
+def _segment_box_t(start, end, origin, mins, maxs):
+    """Slab test: entry time t in [0,1] where segment hits the box, or None."""
+    tmin, tmax = 0.0, 1.0
+    for i in range(3):
+        lo = origin[i] + mins[i]
+        hi = origin[i] + maxs[i]
+        d = end[i] - start[i]
+        if abs(d) < 1e-9:
+            if start[i] < lo or start[i] > hi:
+                return None
+        else:
+            t1 = (lo - start[i]) / d
+            t2 = (hi - start[i]) / d
+            if t1 > t2:
+                t1, t2 = t2, t1
+            tmin = max(tmin, t1)
+            tmax = min(tmax, t2)
+            if tmin > tmax:
+                return None
+    return tmin
+
+
+def _apply_damage(monster, damage, now):
+    monster['health'] -= damage
+    if monster['health'] <= 0:
+        monster['state'] = 'dying'
+        monster['death_start'] = now
+        print(f"{monster['classname']} killed")
+
+
+def DamageSegment(start, end, damage, now=None):
+    """Damage the first live monster the segment start->end passes through.
+    Returns (t, monster) of the hit, or None. Corpses don't block shots."""
+    if now is None:
+        now = time.time()
+
+    best_t = None
+    best_monster = None
+    for monster in _MonsterState.monsters:
+        if monster['state'] != 'alive':
+            continue
+        t = _segment_box_t(start, end, monster['origin'], monster['mins'], monster['maxs'])
+        if t is not None and (best_t is None or t < best_t):
+            best_t = t
+            best_monster = monster
+
+    if best_monster is None:
+        return None
+
+    _apply_damage(best_monster, damage, now)
+    return best_t, best_monster
+
+
+def SplashDamage(origin, damage, radius, now=None):
+    """Explosion damage to all live monsters near origin, falling off linearly."""
+    if now is None:
+        now = time.time()
+    for monster in _MonsterState.monsters:
+        if monster['state'] != 'alive':
+            continue
+        d = math.sqrt(sum((monster['origin'][i] - origin[i]) ** 2 for i in range(3)))
+        if d < radius:
+            _apply_damage(monster, damage * (1.0 - d / radius), now)
+
+
+def _trace(start, end):
+    try:
+        from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
+        if num_models > 0:
+            size = [-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]
+            return CM_BoxTrace(start, end, size[0], size[1], 0, MASK_SOLID)
+    except Exception:
+        pass
+    return None
+
+
+def _box_trace(start, end, mins, maxs):
+    try:
+        from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
+        if num_models > 0:
+            return CM_BoxTrace(start, end, mins, maxs, 0, MASK_SOLID)
+    except Exception:
+        pass
+    return None
+
+
+def _walk_monster(monster, frametime):
+    """Move the monster one frame along its facing yaw, with world collision,
+    stair stepping, and ground snapping."""
+    yaw = math.radians(monster['yaw'])
+    step = MOVE_SPEED * frametime
+    start = monster['origin']
+    end = [start[0] + math.cos(yaw) * step, start[1] + math.sin(yaw) * step, start[2]]
+    mins, maxs = monster['mins'], monster['maxs']
+
+    tr = _box_trace(start, end, mins, maxs)
+    if tr is None:
+        pos = end
+    elif tr.startsolid:
+        return  # embedded somewhere; don't make it worse
+    elif tr.fraction >= 1.0:
+        pos = end
+    else:
+        # Blocked: try the same move lifted by a stair step
+        up_start = [start[0], start[1], start[2] + STEP_HEIGHT]
+        up_end = [end[0], end[1], end[2] + STEP_HEIGHT]
+        tr2 = _box_trace(up_start, up_end, mins, maxs)
+        if tr2 is not None and not tr2.startsolid and tr2.fraction >= 1.0:
+            pos = up_end
+        else:
+            pos = list(getattr(tr, 'endpos', start) or start)
+
+    # Snap onto the floor below (walks down stairs and slopes; leaves
+    # airborne monsters like flyers alone when no floor is near)
+    gtr = _box_trace(pos, [pos[0], pos[1], pos[2] - GROUND_SNAP], mins, maxs)
+    if gtr is not None and not gtr.startsolid and gtr.fraction < 1.0:
+        endpos = getattr(gtr, 'endpos', None)
+        if endpos is not None:
+            pos = [pos[0], pos[1], endpos[2] + 0.25]
+
+    monster['origin'] = pos
+
+
+def _visible(start, end):
+    """Line of sight through the world between two points."""
+    tr = _trace(start, end)
+    if tr is None:
+        return True
+    return tr.fraction >= 1.0 and not tr.startsolid
+
+
+def _play_sound(path):
+    try:
+        from quake2 import cl_weapon
+        cl_weapon._play_sound(path)
+    except Exception:
+        pass
+
+
+def _damage_player(damage):
+    PlayerState.health -= damage
+    if PlayerState.health <= 0:
+        print("You died! Respawning...")
+        _play_sound(PLAYER_DEATH_SOUND)
+        PlayerState.health = 100
+        PlayerState.respawn_requested = True
+    else:
+        print(f"Player hit! health = {PlayerState.health}")
+        _play_sound(PLAYER_PAIN_SOUND)
+
+
+def _monster_eye(monster):
+    return [monster['origin'][0], monster['origin'][1],
+            monster['origin'][2] + monster['maxs'][2] * 0.7]
+
+
+def _update_ai(frametime, player_eye, now):
+    for monster in _MonsterState.monsters:
+        if monster['state'] != 'alive':
+            continue
+
+        eye = _monster_eye(monster)
+        dx = player_eye[0] - eye[0]
+        dy = player_eye[1] - eye[1]
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > SIGHT_RANGE:
+            monster['moving'] = False
+            continue
+        if not _visible(eye, player_eye):
+            monster['moving'] = False
+            continue
+
+        # Turn toward the player
+        want_yaw = math.degrees(math.atan2(dy, dx))
+        delta = (want_yaw - monster['yaw'] + 180.0) % 360.0 - 180.0
+        max_turn = TURN_SPEED * frametime
+        monster['yaw'] += max(-max_turn, min(max_turn, delta))
+
+        # Chase: run toward the player until close enough to hold position
+        if dist > STOP_RANGE and abs(delta) < 90.0:
+            monster['moving'] = True
+            _walk_monster(monster, frametime)
+        else:
+            monster['moving'] = False
+
+        # Fire when roughly facing the player and the attack timer allows
+        if monster['next_attack'] is None:
+            monster['next_attack'] = now + random.uniform(0.5, 1.5)  # reaction time
+        if now >= monster['next_attack'] and abs(delta) < 30.0:
+            direction = [player_eye[i] - eye[i] for i in range(3)]
+            length = math.sqrt(sum(d * d for d in direction)) or 1.0
+            direction = [d / length for d in direction]
+            _MonsterState.bolts.append({
+                'origin': [eye[i] + direction[i] * 24.0 for i in range(3)],
+                'velocity': [d * MONSTER_BOLT_SPEED for d in direction],
+                'expire': now + MONSTER_BOLT_LIFETIME,
+            })
+            monster['attack_start'] = now
+            monster['next_attack'] = now + random.uniform(*ATTACK_INTERVAL)
+            _play_sound(MONSTER_FIRE_SOUND)
+
+
+def _update_bolts(frametime, player_origin, now):
+    alive = []
+    for bolt in _MonsterState.bolts:
+        if now >= bolt['expire']:
+            continue
+        start = bolt['origin']
+        end = [start[i] + bolt['velocity'][i] * frametime for i in range(3)]
+
+        tr = _trace(start, end)
+        world_hit = tr is not None and (tr.fraction < 1.0 or tr.startsolid)
+        seg_end = list(getattr(tr, 'endpos', end) or end) if world_hit else end
+
+        t = _segment_box_t(start, seg_end, player_origin, PLAYER_BOX[0], PLAYER_BOX[1])
+        if t is not None:
+            _damage_player(MONSTER_BOLT_DAMAGE)
+            continue
+        if world_hit:
+            continue
+
+        bolt['origin'] = end
+        alive.append(bolt)
+    _MonsterState.bolts = alive
+
+
+def _monster_frame(monster, model, index, now):
+    path = monster['model_path']
+
+    if monster['state'] in ('dying', 'dead'):
+        first, count = _anim_range(path, model, 'death')
+        elapsed_frames = int((now - monster['death_start']) * ANIM_FPS)
+        if elapsed_frames >= count:
+            monster['state'] = 'dead'
+            return first + count - 1
+        return first + elapsed_frames
+
+    if monster['attack_start'] is not None:
+        first, count = _anim_range(path, model, 'atta')
+        elapsed_frames = int((now - monster['attack_start']) * ANIM_FPS)
+        if elapsed_frames < count:
+            return first + elapsed_frames
+        monster['attack_start'] = None
+
+    first, count = _anim_range(path, model, 'stand')
+    return first + (int(now * ANIM_FPS) + index) % count
 
 
 def _ensure_parsed():
@@ -160,29 +490,42 @@ def _ensure_parsed():
         return
     _MonsterState.entity_string = estr
     _MonsterState.monsters = _spawn_from_entities(parse_entities(estr or ""))
+    _MonsterState.bolts = []
+    PlayerState.health = 100
     print(f"cl_monsters: spawned {len(_MonsterState.monsters)} monsters")
 
 
-def GetEntities(now=None):
-    """Render entities for all monsters on the current map."""
+def Update(frametime, player_origin, now=None):
+    """Advance monster AI and shots one frame. Returns entity dicts to render."""
     if now is None:
         now = time.time()
 
     _ensure_parsed()
+
+    player_eye = [player_origin[0], player_origin[1], player_origin[2] + VIEWHEIGHT]
+    _update_ai(frametime, player_eye, now)
+    _update_bolts(frametime, player_origin, now)
 
     entities = []
     for index, monster in enumerate(_MonsterState.monsters):
         model = _get_model(monster['model_path'])
         if not model:
             continue
-        first, count = _stand_range(monster['model_path'], model)
-        # index offset staggers the animation so monsters don't move in sync
-        frame = first + (int(now * ANIM_FPS) + index) % count
         entities.append({
             'model': model,
             'origin': monster['origin'],
-            'angles': monster['angles'],
-            'frame': frame,
+            'angles': [0.0, monster['yaw'], 0.0],
+            'frame': _monster_frame(monster, model, index, now),
             'skinnum': monster['skin'],
         })
+
+    bolt_model = _get_model(MONSTER_BOLT_MODEL)
+    if bolt_model:
+        from quake2.cl_weapon import _vector_to_angles
+        for bolt in _MonsterState.bolts:
+            entities.append({
+                'model': bolt_model,
+                'origin': list(bolt['origin']),
+                'angles': _vector_to_angles(bolt['velocity']),
+            })
     return entities
