@@ -3,6 +3,12 @@ import time
 from shared.render_types import refdef_t, entity_t, dlight_t, particle_t, lightstyle_t
 
 
+# Eye height above the player origin (original Quake 2 viewheight).
+# _ViewState.vieworg is the player/collision origin; the camera and weapon
+# render from vieworg + VIEWHEIGHT.
+VIEWHEIGHT = 22.0
+
+
 class _ViewState:
     entities = []
     particles = []
@@ -225,6 +231,8 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
             cmd = movement_cmd if movement_cmd is not None else cl_input.CL_CreateCmd()
             frametime = cl_input._State.frametime
             _ViewState.vieworg = cl_input.CL_ApplyMovement(cmd, _ViewState.vieworg, _ViewState.viewangles, frametime)
+            eye_origin = [_ViewState.vieworg[0], _ViewState.vieworg[1],
+                          _ViewState.vieworg[2] + VIEWHEIGHT]
 
             V_ClearScene()
 
@@ -236,10 +244,10 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
             except Exception as monster_err:
                 print(f"[MONSTER ERROR] {monster_err}")
 
-            # Weapon: firing, projectiles, and view model
+            # Weapon: firing, projectiles, and view model (all from eye level)
             try:
                 from . import cl_weapon
-                for ent in cl_weapon.Update(frametime, _ViewState.vieworg, _ViewState.viewangles, cmd):
+                for ent in cl_weapon.Update(frametime, eye_origin, _ViewState.viewangles, cmd):
                     V_AddEntity(ent)
             except Exception as weapon_err:
                 print(f"[WEAPON ERROR] {weapon_err}")
@@ -285,7 +293,8 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
         height=height,
         fov_x=float(fov_x),
         fov_y=float(fov_y),
-        vieworg=_ViewState.vieworg,
+        vieworg=[_ViewState.vieworg[0], _ViewState.vieworg[1],
+                 _ViewState.vieworg[2] + VIEWHEIGHT],
         viewangles=_ViewState.viewangles,
         blend=[0.0, 0.0, 0.0, 0.0],
         time=time.time(),
