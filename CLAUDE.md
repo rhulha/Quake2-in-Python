@@ -30,3 +30,15 @@ Network protocol (cl_parse.py) for multiplayer support
 
 
 
+
+IMPORTANT - pitch angle convention:
+
+This engine's pitch sign is MIRRORED from the original Quake 2 C code:
+positive pitch looks UP here (in original Quake 2, positive pitch looks down).
+The camera view matrix (_make_view_matrix in ref_gl/gl_rmain.py) and the mouse
+handling in quake2/cl_input.py define this convention.
+
+So when porting any C code that uses AngleVectors or vectoangles, flip the
+pitch sign: forward.z = +sin(pitch) instead of -sin(pitch), and
+pitch = +atan2(z, horizontal) instead of negated. See _angle_vectors and
+_vector_to_angles in quake2/cl_weapon.py for the correct reference versions.

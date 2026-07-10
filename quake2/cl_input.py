@@ -405,7 +405,8 @@ def CL_ApplyMovement(cmd, vieworg, viewangles, frametime):
     if _State.noclip:
         pitch_rad = math.radians(viewangles[PITCH])
         cos_pitch = math.cos(pitch_rad)
-        fly_fwd = [fwd_x * cos_pitch, fwd_y * cos_pitch, -math.sin(pitch_rad)]
+        # +sin: positive pitch looks up in this engine (see CLAUDE.md)
+        fly_fwd = [fwd_x * cos_pitch, fwd_y * cos_pitch, math.sin(pitch_rad)]
 
         vel = [
             fly_fwd[0] * cmd.forwardmove + right_x * cmd.sidemove,
@@ -598,6 +599,14 @@ def _handle_keydown(key):
     # E - use
     elif key == pygame.K_e:
         KeyDown(in_use)
+
+    # Number keys - weapon selection (1 = Blaster ... 0 = BFG10K)
+    elif pygame.K_0 <= key <= pygame.K_9:
+        try:
+            from . import cl_weapon
+            cl_weapon.SelectWeapon(9 if key == pygame.K_0 else key - pygame.K_1)
+        except Exception as e:
+            print(f"weapon select error: {e}")
 
     # P - toggle noclip fly mode
     elif key == pygame.K_p:
