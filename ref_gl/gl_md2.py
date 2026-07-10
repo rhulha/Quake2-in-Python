@@ -32,13 +32,14 @@ def _get_program():
     return _program
 
 
-def _load_skin(mesh_data):
-    """Load the model's first skin as a ModernGL texture."""
+def _load_skin(mesh_data, skinnum=0):
+    """Load one of the model's skins as a ModernGL texture."""
     skins = mesh_data.get('skins') or []
     if not skins:
         return None
+    skinnum = max(0, min(skinnum, len(skins) - 1))
     from . import gl_image, gl_rsurf
-    tex_id = gl_image.GL_LoadImage(skins[0])
+    tex_id = gl_image.GL_LoadImage(skins[skinnum])
     return gl_rsurf._get_or_wrap_texture(tex_id)
 
 
@@ -83,7 +84,7 @@ def _build_cache(model):
         'vao': vao,
         'vert_count': vert_count,
         'num_frames': len(frames),
-        'skin': _load_skin(md),
+        'skins': {},  # skinnum -> texture, loaded on demand
     }
     _model_cache[id(model)] = cache
     return cache
@@ -147,7 +148,10 @@ def R_DrawAliasModel(ent):
     prog['u_model'].write(_entity_matrix(ent.origin, ent.angles).T.tobytes())
     prog['u_texture'].value = 0
 
-    skin = cache['skin']
+    skinnum = int(ent.skinnum)
+    if skinnum not in cache['skins']:
+        cache['skins'][skinnum] = _load_skin(ent.model.mesh_data, skinnum)
+    skin = cache['skins'][skinnum]
     if skin:
         skin.use(location=0)
 
