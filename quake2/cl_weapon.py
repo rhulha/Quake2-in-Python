@@ -13,6 +13,10 @@ import time
 
 BUTTON_ATTACK = 1
 
+# Temporary master level for the client-side audio path during development.
+# 0.4 means 60% quieter than the source volume.
+DEVELOPMENT_AUDIO_VOLUME = 0.4
+
 RF_WEAPONMODEL = 4
 RF_FULLBRIGHT = 8
 RF_DEPTHHACK = 16
@@ -211,6 +215,7 @@ def _play_sound(path):
             data, length = FS_LoadFile(path)
             if data:
                 sound = pygame.mixer.Sound(file=io.BytesIO(bytes(data)))
+                sound.set_volume(DEVELOPMENT_AUDIO_VOLUME)
             _WeaponState.sounds[path] = sound
         if _WeaponState.sounds[path]:
             _WeaponState.sounds[path].play()
