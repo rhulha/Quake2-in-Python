@@ -200,6 +200,38 @@ def R_ClearScreen():
 
 # ===== Rendering =====
 
+_sky_name_cache = {}  # entity-string id -> sky base name
+
+
+def _get_sky_name(refdef):
+    """Read the worldspawn "sky" key for the current map (default "unit1_")."""
+    default = "unit1_"
+    try:
+        from quake2 import cmodel
+        estr = cmodel.entity_string
+        if not estr:
+            return default
+        cached = _sky_name_cache.get(id(estr))
+        if cached is not None:
+            return cached
+        name = default
+        # The "sky" key lives in the first (worldspawn) entity block.
+        end = estr.find('}')
+        block = estr[:end] if end != -1 else estr
+        marker = block.find('"sky"')
+        if marker != -1:
+            q1 = block.find('"', marker + 5)
+            q2 = block.find('"', q1 + 1)
+            if q1 != -1 and q2 != -1:
+                value = block[q1 + 1:q2].strip()
+                if value:
+                    name = value
+        _sky_name_cache[id(estr)] = name
+        return name
+    except Exception:
+        return default
+
+
 def R_RenderFrame(refdef_in):
     """Main frame rendering function - ModernGL version"""
     global refdef
@@ -249,9 +281,15 @@ def R_RenderFrame(refdef_in):
                 prog['u_lightmap'].value = 1
                 prog['u_fullbright'].value = 1.0  # 1.0 = full bright, 0.0 = use lightmap
 
-        # Render world
+        # Render world (skybox first, as background, then geometry over it)
         rdflags = refdef.rdflags if hasattr(refdef, 'rdflags') else 0
         if not (rdflags & 1):  # RDF_NOWORLDMODEL = 1
+            try:
+                from . import gl_sky
+                gl_sky.R_SetSky(_get_sky_name(refdef))
+                gl_sky.R_DrawSkyBox(vieworg)
+            except Exception as e:
+                print(f"[GL_RMAIN] Sky render error: {e}")
             try:
                 worldmodel = refdef.worldmodel if hasattr(refdef, 'worldmodel') else None
                 if worldmodel and hasattr(gl_rsurf, 'R_DrawWorld'):

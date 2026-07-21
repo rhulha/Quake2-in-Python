@@ -229,6 +229,7 @@ def R_BuildWorldBuffers(worldmodel):
     batches = {}  # tex_name -> list of float vertices
 
     SURF_NODRAW = 0x80
+    SURF_SKY = 0x4
     batch_count = 0
     faces_rejected_edges = 0
     faces_rejected_texinfo = 0
@@ -253,6 +254,10 @@ def R_BuildWorldBuffers(worldmodel):
         # Skip NODRAW faces
         if texinfo.get('flags', 0) & SURF_NODRAW:
             faces_rejected_nodraw += 1
+            continue
+
+        # Skip SKY faces - the skybox (gl_sky) is drawn through these openings
+        if texinfo.get('flags', 0) & SURF_SKY:
             continue
 
         tex_name = texinfo.get('texture', '')
