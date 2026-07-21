@@ -256,6 +256,65 @@ def test_gl_light_entity_with_dynamic_light_clamps(monkeypatch):
     assert lit == [1.0, 1.0, 1.0]
 
 
+def test_gl_rmain_particle_vertex_data_scales_and_colors():
+    particle = SimpleNamespace(origin=[0.0, 0.0, 100.0], color=[64, 128, 255], alpha=0.25)
+
+    data = gl_rmain._build_particle_vertex_data(
+        [particle],
+        camera_origin=[0.0, 0.0, 0.0],
+        right=[1.0, 0.0, 0.0],
+        up=[0.0, 1.0, 0.0],
+        forward=[0.0, 0.0, 1.0],
+    )
+
+    assert data.shape == (3, 9)
+    assert data[0, :3].tolist() == [0.0, 0.0, 100.0]
+    assert data[1, 1] == pytest.approx(1.5 * (1.0 + 100.0 * 0.004))
+    assert data[2, 0] == pytest.approx(1.5 * (1.0 + 100.0 * 0.004))
+    assert data[0, 5:].tolist() == pytest.approx([64 / 255.0, 128 / 255.0, 1.0, 0.25])
+
+
+def test_gl_rmain_draw_particles_uses_refdef_particles(monkeypatch):
+    calls = []
+    monkeypatch.setattr(gl_rmain, "refdef", SimpleNamespace(particles=[SimpleNamespace(), SimpleNamespace()]))
+    monkeypatch.setattr(gl_rmain, "GL_DrawParticles", lambda count, particles, table: calls.append((count, particles, table)))
+
+    gl_rmain.R_DrawParticles()
+
+    assert calls == [(2, gl_rmain.refdef.particles, None)]
+
+
+def test_gl_rmain_init_particle_texture_creates_texture(monkeypatch):
+    created = {}
+
+    class FakeTexture:
+        def __init__(self):
+            self.filter = None
+            self.repeat_x = True
+            self.repeat_y = True
+
+    class FakeCtx:
+        def texture(self, size, components, data):
+            created["size"] = size
+            created["components"] = components
+            created["data_len"] = len(data)
+            created["texture"] = FakeTexture()
+            return created["texture"]
+
+    monkeypatch.setattr(gl_rmain, "_particle_texture", None)
+    import ref_gl.gl_context as gl_context
+    monkeypatch.setattr(gl_context, "ctx", FakeCtx())
+
+    texture = gl_rmain.R_InitParticleTexture()
+
+    assert texture is created["texture"]
+    assert created["size"] == (8, 8)
+    assert created["components"] == 4
+    assert created["data_len"] == 8 * 8 * 4
+    assert texture.repeat_x is False
+    assert texture.repeat_y is False
+
+
 def test_gl_model_radius_from_bounds():
     radius = gl_model.RadiusFromBounds([-2, -2, -2], [2, 2, 2])
     assert radius == pytest.approx((12) ** 0.5)
