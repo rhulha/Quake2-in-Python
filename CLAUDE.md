@@ -11,6 +11,8 @@ Single Player is the first big milestone. Multiplayer is not important at the mo
 
 Focus only on the opengl driver, use a good open gl lib for python.
 
+I think this project uses pygame (ModernGL).
+
 Dont convert the software renderer.
 
 Quake2 game resources: D:\SteamLibrary\steamapps\common\Quake 2
