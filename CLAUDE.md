@@ -25,26 +25,17 @@ this renderer’s particle draw path is still stubbed, implement it
 
 every monster fires generic blaster bolts rather than its specific weapon. fix that.
 
-Add the HUD
-
 Add menus
 
 Saving / Loading
 
 Implement moving platforms, like lifts.
 
-
 Make Enemies take damage, play death animation, make enemies attack player.
-
-The grenade launcher shall fire a greade that shows the explosion model when the grenade explodes.
 
 LATER:
 
 Network protocol (cl_parse.py) for multiplayer support
-
-
-
-
 
 IMPORTANT - pitch angle convention:
 
