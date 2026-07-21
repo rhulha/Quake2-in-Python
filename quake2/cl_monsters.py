@@ -32,14 +32,95 @@ GIB_MODELS = [
     "models/objects/gibs/head2/tris.md2",
 ]
 
-MONSTER_BOLT_MODEL = "models/objects/laser/tris.md2"
-MONSTER_BOLT_SPEED = 600.0
-MONSTER_BOLT_DAMAGE = 10
 MONSTER_BOLT_LIFETIME = 3.0
-MONSTER_FIRE_SOUND = "sound/weapons/blastf1a.wav"
+MONSTER_BOLT_DAMAGE = 10        # fallback damage for a bolt with no weapon data
+HITSCAN_RANGE = 8192.0
+MELEE_RANGE = 90.0             # melee monsters strike within this distance
+MELEE_STOP_RANGE = 60.0       # ...and close to here before holding position
 PLAYER_PAIN_SOUND = "sound/player/male/pain100_1.wav"
 PLAYER_DEATH_SOUND = "sound/player/male/death1.wav"
 ATTACK_INTERVAL = (1.2, 2.5)  # seconds between monster shots (randomized)
+
+# Per-weapon fire definitions. Each monster fires its own weapon (matching the
+# original m_*.c attack functions) instead of a generic blaster bolt. Projectile
+# weapons spawn a travelling bolt; hitscan weapons trace instantly; melee strikes
+# on contact. Models/sounds mirror the player weapons in cl_weapon.
+MONSTER_WEAPONS = {
+    'blaster': {
+        'kind': 'projectile',
+        'model': "models/objects/laser/tris.md2",
+        'speed': 1000.0, 'damage': 8, 'gravity': False,
+        'sound': "sound/weapons/blastf1a.wav",
+    },
+    'rocket': {
+        'kind': 'projectile',
+        'model': "models/objects/rocket/tris.md2",
+        'speed': 500.0, 'damage': 30, 'gravity': False,
+        'sound': "sound/weapons/rocklf1a.wav",
+        'explode': True,
+        'impact_model': "models/objects/r_explode/tris.md2",
+        'impact_sound': "sound/weapons/rocklx1a.wav",
+        'splash_radius': 120.0,
+    },
+    'grenade': {
+        'kind': 'projectile',
+        'model': "models/objects/grenade/tris.md2",
+        'speed': 600.0, 'damage': 30, 'gravity': True, 'launch_up': 200.0,
+        'sound': "sound/weapons/grenlf1a.wav",
+        'explode': True,
+        'impact_model': "models/objects/r_explode/tris.md2",
+        'impact_sound': "sound/weapons/grenlx1a.wav",
+        'splash_radius': 120.0,
+    },
+    'machinegun': {
+        'kind': 'hitscan',
+        'damage': 4, 'count': 3, 'spread': 300.0,
+        'sound': "sound/weapons/machgf1b.wav",
+    },
+    'shotgun': {
+        'kind': 'hitscan',
+        'damage': 3, 'count': 6, 'spread': 600.0,
+        'sound': "sound/weapons/shotgf1b.wav",
+    },
+    'railgun': {
+        'kind': 'hitscan',
+        'damage': 30, 'count': 1, 'spread': 0.0,
+        'sound': "sound/weapons/railgf1a.wav",
+    },
+    'melee': {
+        'kind': 'melee',
+        'damage': 10, 'sound': None,
+    },
+}
+
+# classname -> weapon type, from the original monster attack code. Monsters with
+# no ranged attack in the original (berserker, mutant, ...) are melee.
+MONSTER_WEAPON_BY_CLASS = {
+    'monster_soldier_light': 'blaster',
+    'monster_soldier': 'shotgun',
+    'monster_soldier_ss': 'machinegun',
+    'monster_infantry': 'machinegun',
+    'monster_gunner': 'grenade',
+    'monster_gladiator': 'railgun',
+    'monster_chick': 'rocket',
+    'monster_flyer': 'blaster',
+    'monster_hover': 'blaster',
+    'monster_floater': 'blaster',
+    'monster_medic': 'blaster',
+    'monster_makron': 'blaster',
+    'monster_tank': 'rocket',
+    'monster_tank_commander': 'rocket',
+    'monster_supertank': 'rocket',
+    'monster_boss2': 'rocket',
+    'monster_jorg': 'machinegun',
+    'monster_berserk': 'melee',
+    'monster_brain': 'melee',
+    'monster_mutant': 'melee',
+    'monster_parasite': 'melee',
+    'monster_insane': 'melee',
+    'monster_flipper': 'melee',
+}
+DEFAULT_MONSTER_WEAPON = 'blaster'
 
 # NOT_MEDIUM: entities flagged out of skill 1 are skipped, otherwise maps
 # would spawn overlapping per-skill duplicates at the same spot.
@@ -198,6 +279,7 @@ def _spawn_from_entities(entities):
             'yaw': yaw,
             'model_path': model_path,
             'skin': skin,
+            'weapon': MONSTER_WEAPON_BY_CLASS.get(classname, DEFAULT_MONSTER_WEAPON),
             'health': HEALTH.get(classname, 100),
             'mins': mins,
             'maxs': maxs,
@@ -452,6 +534,8 @@ def _visible(start, end):
 
 
 def _play_sound(path):
+    if not path:
+        return
     try:
         from quake2 import cl_weapon
         cl_weapon._play_sound(path)
@@ -476,7 +560,86 @@ def _monster_eye(monster):
             monster['origin'][2] + monster['maxs'][2] * 0.7]
 
 
+def _monster_weapon(monster):
+    return MONSTER_WEAPONS.get(monster.get('weapon', DEFAULT_MONSTER_WEAPON),
+                               MONSTER_WEAPONS[DEFAULT_MONSTER_WEAPON])
+
+
+def _cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]]
+
+
+def _perp_basis(forward):
+    """Right/up vectors perpendicular to forward, for spreading hitscan shots."""
+    up_world = [1.0, 0.0, 0.0] if abs(forward[2]) > 0.99 else [0.0, 0.0, 1.0]
+    right = _cross(forward, up_world)
+    length = math.sqrt(sum(c * c for c in right)) or 1.0
+    right = [c / length for c in right]
+    up = _cross(right, forward)
+    return right, up
+
+
+def _fire_hitscan(eye, forward, player_origin, weapon, now):
+    """Trace instant shots (bullets/pellets/rail) toward the player."""
+    right, up = _perp_basis(forward)
+    spread = weapon.get('spread', 0.0)
+    for _ in range(weapon.get('count', 1)):
+        r = random.uniform(-1.0, 1.0) * spread
+        u = random.uniform(-1.0, 1.0) * spread
+        end = [eye[i] + forward[i] * HITSCAN_RANGE + right[i] * r + up[i] * u
+               for i in range(3)]
+        tr = _trace(eye, end)
+        world_hit = tr is not None and (tr.fraction < 1.0 or tr.startsolid)
+        seg_end = list(getattr(tr, 'endpos', end) or end) if world_hit else end
+        if _segment_box_t(eye, seg_end, player_origin,
+                          PLAYER_BOX[0], PLAYER_BOX[1]) is not None:
+            _damage_player(weapon['damage'])
+
+
+def _monster_attack(monster, eye, player_eye, player_origin, dist, now):
+    """Fire the monster's specific weapon. Returns True if it attacked."""
+    weapon = _monster_weapon(monster)
+    kind = weapon['kind']
+
+    direction = [player_eye[i] - eye[i] for i in range(3)]
+    length = math.sqrt(sum(d * d for d in direction)) or 1.0
+    forward = [d / length for d in direction]
+
+    if kind == 'melee':
+        if dist > MELEE_RANGE:
+            return False
+        _damage_player(weapon['damage'])
+        _play_sound(weapon.get('sound'))
+        return True
+
+    if kind == 'hitscan':
+        _fire_hitscan(eye, forward, player_origin, weapon, now)
+        _play_sound(weapon.get('sound'))
+        return True
+
+    # projectile
+    velocity = [forward[i] * weapon['speed'] for i in range(3)]
+    velocity[2] += weapon.get('launch_up', 0.0)
+    _MonsterState.bolts.append({
+        'origin': [eye[i] + forward[i] * 24.0 for i in range(3)],
+        'velocity': velocity,
+        'expire': now + MONSTER_BOLT_LIFETIME,
+        'model': weapon['model'],
+        'damage': weapon['damage'],
+        'gravity': weapon.get('gravity', False),
+        'explode': weapon.get('explode', False),
+        'impact_model': weapon.get('impact_model'),
+        'impact_sound': weapon.get('impact_sound'),
+        'splash_radius': weapon.get('splash_radius', 0.0),
+    })
+    _play_sound(weapon.get('sound'))
+    return True
+
+
 def _update_ai(frametime, player_eye, now):
+    player_origin = [player_eye[0], player_eye[1], player_eye[2] - VIEWHEIGHT]
     for monster in _MonsterState.monsters:
         if monster['state'] != 'alive':
             continue
@@ -498,35 +661,51 @@ def _update_ai(frametime, player_eye, now):
         max_turn = TURN_SPEED * frametime
         monster['yaw'] += max(-max_turn, min(max_turn, delta))
 
-        # Chase: run toward the player until close enough to hold position
-        if dist > STOP_RANGE and abs(delta) < 90.0:
+        # Chase: run toward the player until close enough to hold position.
+        # Melee monsters close in further so they can reach striking range.
+        stop_range = MELEE_STOP_RANGE if _monster_weapon(monster)['kind'] == 'melee' else STOP_RANGE
+        if dist > stop_range and abs(delta) < 90.0:
             monster['moving'] = True
             _walk_monster(monster, frametime)
         else:
             monster['moving'] = False
 
-        # Fire when roughly facing the player and the attack timer allows
+        # Attack when roughly facing the player and the attack timer allows
         if monster['next_attack'] is None:
             monster['next_attack'] = now + random.uniform(0.5, 1.5)  # reaction time
         if now >= monster['next_attack'] and abs(delta) < 30.0:
-            direction = [player_eye[i] - eye[i] for i in range(3)]
-            length = math.sqrt(sum(d * d for d in direction)) or 1.0
-            direction = [d / length for d in direction]
-            _MonsterState.bolts.append({
-                'origin': [eye[i] + direction[i] * 24.0 for i in range(3)],
-                'velocity': [d * MONSTER_BOLT_SPEED for d in direction],
-                'expire': now + MONSTER_BOLT_LIFETIME,
-            })
-            monster['attack_start'] = now
-            monster['next_attack'] = now + random.uniform(*ATTACK_INTERVAL)
-            _play_sound(MONSTER_FIRE_SOUND)
+            if _monster_attack(monster, eye, player_eye, player_origin, dist, now):
+                monster['attack_start'] = now
+                monster['next_attack'] = now + random.uniform(*ATTACK_INTERVAL)
+
+
+def _explode_bolt(bolt, origin, player_origin, now):
+    """Detonate an exploding monster projectile: splash the player, show FX."""
+    radius = bolt.get('splash_radius', 0.0)
+    if radius > 0.0:
+        center = [player_origin[0], player_origin[1], player_origin[2] + 4.0]
+        d = math.sqrt(sum((center[i] - origin[i]) ** 2 for i in range(3)))
+        if d < radius:
+            _damage_player(int(round(bolt['damage'] * (1.0 - d / radius))))
+    try:
+        from quake2 import cl_weapon
+        cl_weapon.spawn_explosion(origin, bolt.get('impact_model'),
+                                  bolt.get('impact_sound'), now)
+    except Exception:
+        pass
 
 
 def _update_bolts(frametime, player_origin, now):
+    from quake2.cl_weapon import GRAVITY
     alive = []
     for bolt in _MonsterState.bolts:
+        damage = bolt.get('damage', MONSTER_BOLT_DAMAGE)
         if now >= bolt['expire']:
+            if bolt.get('explode'):
+                _explode_bolt(bolt, bolt['origin'], player_origin, now)
             continue
+        if bolt.get('gravity'):
+            bolt['velocity'][2] -= GRAVITY * frametime
         start = bolt['origin']
         end = [start[i] + bolt['velocity'][i] * frametime for i in range(3)]
 
@@ -536,9 +715,15 @@ def _update_bolts(frametime, player_origin, now):
 
         t = _segment_box_t(start, seg_end, player_origin, PLAYER_BOX[0], PLAYER_BOX[1])
         if t is not None:
-            _damage_player(MONSTER_BOLT_DAMAGE)
+            point = [start[i] + (seg_end[i] - start[i]) * t for i in range(3)]
+            if bolt.get('explode'):
+                _explode_bolt(bolt, point, player_origin, now)
+            else:
+                _damage_player(damage)
             continue
         if world_hit:
+            if bolt.get('explode'):
+                _explode_bolt(bolt, seg_end, player_origin, now)
             continue
 
         bolt['origin'] = end
@@ -618,13 +803,14 @@ def Update(frametime, player_origin, now=None):
             'skinnum': monster['skin'],
         })
 
-    bolt_model = _get_model(MONSTER_BOLT_MODEL)
-    if bolt_model:
-        from quake2.cl_weapon import _vector_to_angles
-        for bolt in _MonsterState.bolts:
-            entities.append({
-                'model': bolt_model,
-                'origin': list(bolt['origin']),
-                'angles': _vector_to_angles(bolt['velocity']),
-            })
+    from quake2.cl_weapon import _vector_to_angles
+    for bolt in _MonsterState.bolts:
+        model = _get_model(bolt.get('model', MONSTER_WEAPONS['blaster']['model']))
+        if not model:
+            continue
+        entities.append({
+            'model': model,
+            'origin': list(bolt['origin']),
+            'angles': _vector_to_angles(bolt['velocity']),
+        })
     return entities

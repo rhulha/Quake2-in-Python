@@ -361,6 +361,21 @@ def _fire(weapon, vieworg, viewangles, now):
     _play_sound(weapon['sound'])
 
 
+def spawn_explosion(origin, model=ROCKET_EXPLOSION_MODEL, sound=ROCKET_EXPLOSION_SOUND, now=None):
+    """Add an animated explosion effect at origin (used by monster projectiles).
+
+    Reuses the same explosion render path as the player's rockets."""
+    if now is None:
+        now = time.time()
+    _WeaponState.explosions.append({
+        'origin': list(origin),
+        'start': now,
+        'model': model or ROCKET_EXPLOSION_MODEL,
+    })
+    if sound:
+        _play_sound(sound)
+
+
 def _spawn_projectile_explosion(bolt, origin, now):
     if not bolt['impact_model']:
         return

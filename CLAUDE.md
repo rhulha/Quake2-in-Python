@@ -23,8 +23,6 @@ NEXT:
 
 this renderer’s particle draw path is still stubbed, implement it
 
-every monster fires generic blaster bolts rather than its specific weapon. fix that.
-
 Add menus
 
 Saving / Loading

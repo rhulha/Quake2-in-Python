@@ -162,11 +162,12 @@ def test_death_animation_plays_then_holds_last_frame(monkeypatch):
     assert soldier['state'] == 'dead'
 
 
-def test_monster_attacks_visible_player(monkeypatch):
-    soldier = _make_monster(origin=(200.0, 0.0, 0.0))
-    soldier['yaw'] = 180.0  # already facing the player at the origin
-    soldier['next_attack'] = 0.0
-    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [soldier])
+def test_projectile_monster_fires_its_own_bolt(monkeypatch):
+    # A blaster monster (soldier_light) spawns a travelling bolt with its model
+    flyer = _make_monster(classname='monster_soldier_light', origin=(200.0, 0.0, 0.0))
+    flyer['yaw'] = 180.0  # already facing the player at the origin
+    flyer['next_attack'] = 0.0
+    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [flyer])
     monkeypatch.setattr(cl_monsters._MonsterState, "bolts", [])
     monkeypatch.setattr(cl_monsters, "_visible", lambda _s, _e: True)
     monkeypatch.setattr(cl_monsters, "_play_sound", lambda _p: None)
@@ -176,8 +177,80 @@ def test_monster_attacks_visible_player(monkeypatch):
     assert len(cl_monsters._MonsterState.bolts) == 1
     bolt = cl_monsters._MonsterState.bolts[0]
     assert bolt['velocity'][0] < 0  # flying toward the player (-x)
-    assert soldier['attack_start'] == 10.0
-    assert soldier['next_attack'] > 10.0
+    assert bolt['model'] == cl_monsters.MONSTER_WEAPONS['blaster']['model']
+    assert bolt['damage'] == cl_monsters.MONSTER_WEAPONS['blaster']['damage']
+    assert flyer['attack_start'] == 10.0
+    assert flyer['next_attack'] > 10.0
+
+
+def test_each_monster_uses_its_own_weapon():
+    # Weapon assignment matches the original monster attack code
+    def weapon_of(classname):
+        return cl_monsters._spawn_from_entities(
+            [{'classname': classname, 'origin': '0 0 0'}])[0]['weapon']
+
+    assert weapon_of('monster_soldier') == 'shotgun'
+    assert weapon_of('monster_soldier_ss') == 'machinegun'
+    assert weapon_of('monster_gladiator') == 'railgun'
+    assert weapon_of('monster_chick') == 'rocket'
+    assert weapon_of('monster_gunner') == 'grenade'
+    assert weapon_of('monster_berserk') == 'melee'
+    # Every weapon type referenced by a monster is defined
+    for classname in cl_monsters.MONSTERS:
+        weapon = cl_monsters.MONSTER_WEAPON_BY_CLASS.get(
+            classname, cl_monsters.DEFAULT_MONSTER_WEAPON)
+        assert weapon in cl_monsters.MONSTER_WEAPONS
+
+
+def test_hitscan_monster_damages_aligned_player(monkeypatch):
+    # A shotgun soldier's instant pellets hit a player directly in front
+    soldier = _make_monster(classname='monster_soldier', origin=(120.0, 0.0, 0.0))
+    soldier['yaw'] = 180.0
+    soldier['next_attack'] = 0.0
+    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [soldier])
+    monkeypatch.setattr(cl_monsters._MonsterState, "bolts", [])
+    monkeypatch.setattr(cl_monsters, "_visible", lambda _s, _e: True)
+    monkeypatch.setattr(cl_monsters, "_trace", lambda _s, _e: None)  # no wall
+    monkeypatch.setattr(cl_monsters, "_play_sound", lambda _p: None)
+    monkeypatch.setattr(cl_monsters.PlayerState, "health", 100)
+
+    cl_monsters._update_ai(0.016, [0.0, 0.0, 22.0], now=10.0)
+
+    assert cl_monsters._MonsterState.bolts == []   # hitscan, no projectile
+    assert cl_monsters.PlayerState.health < 100    # pellets landed
+
+
+def test_melee_monster_strikes_at_close_range(monkeypatch):
+    close = _make_monster(classname='monster_berserk', origin=(40.0, 0.0, 0.0))
+    close['yaw'] = 180.0
+    close['next_attack'] = 0.0
+    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [close])
+    monkeypatch.setattr(cl_monsters._MonsterState, "bolts", [])
+    monkeypatch.setattr(cl_monsters, "_visible", lambda _s, _e: True)
+    monkeypatch.setattr(cl_monsters, "_box_trace", lambda _s, _e, _mi, _ma: None)
+    monkeypatch.setattr(cl_monsters, "_play_sound", lambda _p: None)
+    monkeypatch.setattr(cl_monsters.PlayerState, "health", 100)
+
+    cl_monsters._update_ai(0.1, [0.0, 0.0, 22.0], now=10.0)
+
+    assert cl_monsters._MonsterState.bolts == []  # melee: no projectile
+    assert cl_monsters.PlayerState.health == 100 - cl_monsters.MONSTER_WEAPONS['melee']['damage']
+
+
+def test_melee_monster_out_of_range_does_not_strike(monkeypatch):
+    far = _make_monster(classname='monster_berserk', origin=(400.0, 0.0, 0.0))
+    far['yaw'] = 180.0
+    far['next_attack'] = 0.0
+    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [far])
+    monkeypatch.setattr(cl_monsters._MonsterState, "bolts", [])
+    monkeypatch.setattr(cl_monsters, "_visible", lambda _s, _e: True)
+    monkeypatch.setattr(cl_monsters, "_box_trace", lambda _s, _e, _mi, _ma: None)
+    monkeypatch.setattr(cl_monsters, "_play_sound", lambda _p: None)
+    monkeypatch.setattr(cl_monsters.PlayerState, "health", 100)
+
+    cl_monsters._update_ai(0.1, [0.0, 0.0, 22.0], now=10.0)
+
+    assert cl_monsters.PlayerState.health == 100  # too far to melee
 
 
 def test_monster_holds_fire_without_line_of_sight(monkeypatch):
@@ -221,6 +294,34 @@ def test_monster_bolt_damages_player_and_respawns(monkeypatch):
 
     assert cl_monsters.PlayerState.respawn_requested is True
     assert cl_monsters.PlayerState.health == 100
+
+
+def test_exploding_bolt_splashes_player_and_shows_effect(monkeypatch):
+    from quake2 import cl_weapon
+    monkeypatch.setattr(cl_monsters._MonsterState, "monsters", [])
+    monkeypatch.setattr(cl_monsters, "_trace", lambda _s, _e: None)  # no wall
+    monkeypatch.setattr(cl_monsters, "_play_sound", lambda _p: None)
+    monkeypatch.setattr(cl_monsters.PlayerState, "health", 100)
+
+    effects = []
+    monkeypatch.setattr(cl_weapon, "spawn_explosion",
+                        lambda origin, model=None, sound=None, now=None: effects.append(origin))
+
+    rocket = dict(cl_monsters.MONSTER_WEAPONS['rocket'])
+    # Rocket heading straight into the player box at the origin
+    monkeypatch.setattr(cl_monsters._MonsterState, "bolts", [{
+        'origin': [40.0, 0.0, 0.0],
+        'velocity': [-500.0, 0.0, 0.0],
+        'expire': 99.0,
+        'model': rocket['model'], 'damage': rocket['damage'], 'gravity': False,
+        'explode': True, 'impact_model': rocket['impact_model'],
+        'impact_sound': rocket['impact_sound'], 'splash_radius': rocket['splash_radius'],
+    }])
+    cl_monsters._update_bolts(0.1, [0.0, 0.0, 0.0], now=10.0)
+
+    assert cl_monsters.PlayerState.health < 100  # splash damage applied
+    assert len(effects) == 1                     # explosion effect spawned
+    assert cl_monsters._MonsterState.bolts == []  # rocket consumed
 
 
 def test_monster_chases_distant_player(monkeypatch):
