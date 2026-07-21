@@ -284,17 +284,12 @@ def R_RenderFrame(refdef_in):
         except Exception as e:
             pass
 
-        # Draw 2D HUD
-        # Disabled: gl_draw.py uses fixed-function OpenGL incompatible with Core Profile
-        # TODO: Port 2D drawing to ModernGL shaders
-        # try:
-        #     from . import gl_draw
-        #     gl_draw.DrawCrosshair()
-        #     player_state = getattr(refdef, 'player_state', None)
-        #     if player_state:
-        #         gl_draw.SCR_DrawHUD(player_state)
-        # except Exception as e:
-        #     pass
+        # Draw 2D HUD (ModernGL shader-based; see gl_hud.py)
+        try:
+            from . import gl_hud
+            gl_hud.SCR_DrawHUD()
+        except Exception as e:
+            print(f"[GL_RMAIN] HUD render error: {e}")
 
         # End frame
         glw_imp.GLimp_EndFrame()

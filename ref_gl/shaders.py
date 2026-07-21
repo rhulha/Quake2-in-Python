@@ -122,3 +122,43 @@ void main() {
     if (frag_color.a < 0.01) discard;
 }
 """
+
+# 2D HUD/overlay shader. Vertices are in pixel coordinates (origin top-left,
+# y down); u_screen maps them to normalized device coordinates.
+HUD_VERT = """
+#version 330 core
+
+in vec2 in_position;
+in vec2 in_texcoord;
+
+uniform vec2 u_screen;
+
+out vec2 v_texcoord;
+
+void main() {
+    vec2 ndc = vec2(in_position.x / u_screen.x * 2.0 - 1.0,
+                    1.0 - in_position.y / u_screen.y * 2.0);
+    gl_Position = vec4(ndc, 0.0, 1.0);
+    v_texcoord = in_texcoord;
+}
+"""
+
+HUD_FRAG = """
+#version 330 core
+
+in vec2 v_texcoord;
+
+uniform sampler2D u_texture;
+uniform vec4 u_color;     // modulation / solid-fill color
+uniform int u_textured;   // 1 = sample texture, 0 = solid fill
+
+out vec4 frag_color;
+
+void main() {
+    vec4 c = u_color;
+    if (u_textured == 1)
+        c *= texture(u_texture, v_texcoord);
+    if (c.a < 0.02) discard;
+    frag_color = c;
+}
+"""
