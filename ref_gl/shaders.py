@@ -14,13 +14,14 @@ in vec2 in_lm_coord;    // location 2 - lightmap texture coordinates
 // Uniforms
 uniform mat4 u_proj;    // projection matrix
 uniform mat4 u_view;    // view (camera) matrix
+uniform vec3 u_offset;  // world-space displacement (moving submodels: doors)
 
 // Outputs to fragment shader
 out vec2 v_texcoord;
 out vec2 v_lm_coord;
 
 void main() {
-    gl_Position = u_proj * u_view * vec4(in_position, 1.0);
+    gl_Position = u_proj * u_view * vec4(in_position + u_offset, 1.0);
     v_texcoord = in_texcoord;
     v_lm_coord = in_lm_coord;
 }

@@ -261,11 +261,14 @@ JUMP_BUFFER_TIME = 0.1
 
 
 def _trace(start, end):
-    """Box trace through world, returns CTrace or None."""
+    """Box trace through world and doors, returns CTrace or None."""
     try:
         from quake2.cmodel import CM_BoxTrace, MASK_PLAYERSOLID, num_models
         if num_models > 0:
-            return CM_BoxTrace(start, end, PLAYER_MINS, PLAYER_MAXS, 0, MASK_PLAYERSOLID)
+            tr = CM_BoxTrace(start, end, PLAYER_MINS, PLAYER_MAXS, 0, MASK_PLAYERSOLID)
+            from quake2 import cl_doors
+            return cl_doors.ClipTrace(start, end, PLAYER_MINS, PLAYER_MAXS, tr,
+                                      MASK_PLAYERSOLID)
     except Exception:
         pass
     return None

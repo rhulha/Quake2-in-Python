@@ -80,3 +80,6 @@ class refdef_t:
 
     # World model reference
     worldmodel: Optional[Any] = None
+
+    # Moving BSP submodels: submodel index -> world-space displacement (doors)
+    submodel_offsets: dict = field(default_factory=dict)

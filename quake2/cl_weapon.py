@@ -255,7 +255,9 @@ def _trace(start, end):
         from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
         if num_models > 0:
             size = [-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]
-            return CM_BoxTrace(start, end, size[0], size[1], 0, MASK_SOLID)
+            tr = CM_BoxTrace(start, end, size[0], size[1], 0, MASK_SOLID)
+            from quake2 import cl_doors
+            return cl_doors.ClipTrace(start, end, size[0], size[1], tr, MASK_SOLID)
     except Exception:
         pass
     return None

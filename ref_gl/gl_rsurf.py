@@ -10,9 +10,12 @@ import moderngl
 
 # Module-level state
 _world_vaos = {}  # id(model) -> dict of {tex_name: (vao, vbo, vert_count)}
+_submodel_vaos = {}  # id(model) -> {submodel index -> {tex_name: (vao, vbo, vert_count)}}
 _world_vbos = {}  # id(model) -> lm_tex (lightmap atlas texture)
 _mgl_textures = {}  # gl_tex_id -> moderngl.Texture wrapper
 _lm_atlas = None
+
+_NO_OFFSET = (0.0, 0.0, 0.0)
 
 VERTEX_STRIDE = 7  # x, y, z, u, v, lm_u, lm_v
 TEXINFO_SIZE_BSP = 76  # Size of a texinfo entry in BSP file
@@ -212,48 +215,30 @@ def _get_or_wrap_texture(gl_tex_id):
         return None
 
 
-def R_BuildWorldBuffers(worldmodel):
-    """Build VAO/VBO for all BSP faces at map load time"""
-    from . import gl_context, gl_image
-
-    model_key = id(worldmodel)
-    if model_key in _world_vaos:
-        return  # Already built
-
-    ctx = gl_context.ctx
-    prog = gl_context.bsp_program
-    if not ctx or not prog:
-        return
-
-    lm_block = LightmapBlock()
-    batches = {}  # tex_name -> list of float vertices
+def _build_face_batches(model, first_face, num_faces, lm_block):
+    """Triangulate a range of BSP faces into {tex_name: [floats]} batches."""
+    from . import gl_image
 
     SURF_NODRAW = 0x80
     SURF_SKY = 0x4
-    batch_count = 0
-    faces_rejected_edges = 0
-    faces_rejected_texinfo = 0
-    faces_rejected_nodraw = 0
-    faces_rejected_texname = 0
-    faces_rejected_verts = 0
 
-    for i, face in enumerate(worldmodel.faces):
+    batches = {}
+
+    for face_idx in range(first_face, min(first_face + num_faces, len(model.faces))):
+        face = model.faces[face_idx]
         first_edge = face.get('first_edge', 0)
         num_edges = face.get('num_edges', 0)
         if num_edges < 3:
-            faces_rejected_edges += 1
             continue
 
         # Get texinfo
         texinfo_idx = face.get('texinfo', 0)
-        texinfo = _get_texinfo(worldmodel, texinfo_idx)
+        texinfo = _get_texinfo(model, texinfo_idx)
         if not texinfo:
-            faces_rejected_texinfo += 1
             continue
 
         # Skip NODRAW faces
         if texinfo.get('flags', 0) & SURF_NODRAW:
-            faces_rejected_nodraw += 1
             continue
 
         # Skip SKY faces - the skybox (gl_sky) is drawn through these openings
@@ -262,24 +247,22 @@ def R_BuildWorldBuffers(worldmodel):
 
         tex_name = texinfo.get('texture', '')
         if not tex_name:
-            faces_rejected_texname += 1
             continue
 
         # Resolve vertices
-        verts = _resolve_face_vertices(worldmodel, first_edge, num_edges)
+        verts = _resolve_face_vertices(model, first_edge, num_edges)
         if len(verts) < 3:
-            faces_rejected_verts += 1
             continue
 
         # Allocate lightmap
-        lm_alloc = _alloc_lightmap(lm_block, worldmodel, face, texinfo)
+        lm_alloc = _alloc_lightmap(lm_block, model, face, texinfo)
         if not lm_alloc:
             continue
         lm_x, lm_y, lm_w, lm_h = lm_alloc
-        _fill_lightmap(lm_block, worldmodel, face, lm_x, lm_y, lm_w, lm_h)
+        _fill_lightmap(lm_block, model, face, lm_x, lm_y, lm_w, lm_h)
 
         # Get texture
-        tex_id = gl_image.GL_FindImage(tex_name, 1)
+        gl_image.GL_FindImage(tex_name, 1)
 
         # UV axes
         s_axis = texinfo.get('s_axis', [1, 0, 0])
@@ -300,12 +283,11 @@ def R_BuildWorldBuffers(worldmodel):
                                 lm_block.width, lm_block.height)
                 buf.extend([vi[0], vi[1], vi[2], u, v, lu, lv])
 
-    # Upload lightmap atlas
-    lm_data = bytes(lm_block.data)
-    lm_tex = ctx.texture((lm_block.width, lm_block.height), 3, data=lm_data, dtype='f1')
-    lm_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+    return batches
 
-    # Build VAOs per texture batch
+
+def _batches_to_vaos(ctx, prog, batches):
+    """Upload triangulated batches into one VAO per texture."""
     vaos = {}
     for tex_name, flat in batches.items():
         if not flat:
@@ -316,15 +298,77 @@ def R_BuildWorldBuffers(worldmodel):
                                 [(vbo, '3f 2f 2f', 'in_position', 'in_texcoord', 'in_lm_coord')])
         vert_count = len(flat) // VERTEX_STRIDE
         vaos[tex_name] = (vao, vbo, vert_count)
+    return vaos
 
-    _world_vaos[model_key] = vaos
+
+def R_BuildWorldBuffers(worldmodel):
+    """Build VAO/VBO for all BSP faces at map load time.
+
+    Submodels (BSP models 1..n: doors, buttons, plats, func_wall) get their own
+    VAOs so movers can be drawn at a per-frame offset instead of being baked
+    into the static world geometry.
+    """
+    from . import gl_context
+
+    model_key = id(worldmodel)
+    if model_key in _world_vaos:
+        return  # Already built
+
+    ctx = gl_context.ctx
+    prog = gl_context.bsp_program
+    if not ctx or not prog:
+        return
+
+    # One lightmap atlas covers the world and every submodel
+    lm_block = LightmapBlock()
+
+    bsp_models = getattr(worldmodel, 'models', None) or []
+    if bsp_models:
+        world_first = bsp_models[0]['first_face']
+        world_count = bsp_models[0]['num_faces']
+    else:
+        world_first, world_count = 0, len(worldmodel.faces)
+
+    world_batches = _build_face_batches(worldmodel, world_first, world_count, lm_block)
+
+    submodel_batches = {}
+    for index in range(1, len(bsp_models)):
+        batches = _build_face_batches(worldmodel, bsp_models[index]['first_face'],
+                                      bsp_models[index]['num_faces'], lm_block)
+        if batches:
+            submodel_batches[index] = batches
+
+    # Upload lightmap atlas
+    lm_data = bytes(lm_block.data)
+    lm_tex = ctx.texture((lm_block.width, lm_block.height), 3, data=lm_data, dtype='f1')
+    lm_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+
+    _world_vaos[model_key] = _batches_to_vaos(ctx, prog, world_batches)
+    _submodel_vaos[model_key] = {index: _batches_to_vaos(ctx, prog, batches)
+                                 for index, batches in submodel_batches.items()}
     _world_vbos[model_key] = lm_tex
 
 
-def R_DrawWorld(worldmodel):
-    """Render world model - ModernGL version"""
-    from . import gl_context, gl_image
-    import moderngl
+def _draw_vaos(prog, vaos, offset):
+    """Draw one batch group displaced by offset."""
+    from . import gl_image
+
+    prog['u_offset'].value = tuple(float(v) for v in offset)
+    for tex_name, (vao, vbo, vert_count) in vaos.items():
+        tex_id = gl_image.GL_FindImage(tex_name, 1)
+        mgl_tex = _get_or_wrap_texture(tex_id)
+        if mgl_tex:
+            mgl_tex.use(location=0)
+        vao.render(moderngl.TRIANGLES)
+
+
+def R_DrawWorld(worldmodel, submodel_offsets=None):
+    """Render world model and its submodels - ModernGL version.
+
+    submodel_offsets maps a BSP submodel index to its current world-space
+    displacement (see quake2/cl_doors.py); anything not listed draws in place.
+    """
+    from . import gl_context
 
     ctx = gl_context.ctx
     prog = gl_context.bsp_program
@@ -337,18 +381,19 @@ def R_DrawWorld(worldmodel):
         if model_key not in _world_vaos:
             return
 
-    vaos = _world_vaos[model_key]
     lm_tex = _world_vbos.get(model_key)
-
     if lm_tex:
         lm_tex.use(location=1)
 
-    for tex_name, (vao, vbo, vert_count) in vaos.items():
-        tex_id = gl_image.GL_FindImage(tex_name, 1)
-        mgl_tex = _get_or_wrap_texture(tex_id)
-        if mgl_tex:
-            mgl_tex.use(location=0)
-        vao.render(moderngl.TRIANGLES)
+    _draw_vaos(prog, _world_vaos[model_key], _NO_OFFSET)
+
+    for index, vaos in _submodel_vaos.get(model_key, {}).items():
+        offset = _NO_OFFSET
+        if submodel_offsets:
+            offset = submodel_offsets.get(index, _NO_OFFSET)
+        _draw_vaos(prog, vaos, offset)
+
+    prog['u_offset'].value = _NO_OFFSET
 
 
 def R_FreeWorldBuffers(model=None):
@@ -361,6 +406,12 @@ def R_FreeWorldBuffers(model=None):
                 vao.release()
                 vbo.release()
             del _world_vaos[k]
+        if k in _submodel_vaos:
+            for vaos in _submodel_vaos[k].values():
+                for tex_name, (vao, vbo, _) in vaos.items():
+                    vao.release()
+                    vbo.release()
+            del _submodel_vaos[k]
         if k in _world_vbos:
             _world_vbos[k].release()
             del _world_vbos[k]

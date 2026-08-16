@@ -468,21 +468,17 @@ def SplashDamage(origin, damage, radius, now=None):
 
 
 def _trace(start, end):
-    try:
-        from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
-        if num_models > 0:
-            size = [-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]
-            return CM_BoxTrace(start, end, size[0], size[1], 0, MASK_SOLID)
-    except Exception:
-        pass
-    return None
+    size = [-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]
+    return _box_trace(start, end, size[0], size[1])
 
 
 def _box_trace(start, end, mins, maxs):
     try:
         from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
         if num_models > 0:
-            return CM_BoxTrace(start, end, mins, maxs, 0, MASK_SOLID)
+            tr = CM_BoxTrace(start, end, mins, maxs, 0, MASK_SOLID)
+            from quake2 import cl_doors
+            return cl_doors.ClipTrace(start, end, mins, maxs, tr, MASK_SOLID)
     except Exception:
         pass
     return None

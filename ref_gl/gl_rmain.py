@@ -293,7 +293,7 @@ def R_RenderFrame(refdef_in):
             try:
                 worldmodel = refdef.worldmodel if hasattr(refdef, 'worldmodel') else None
                 if worldmodel and hasattr(gl_rsurf, 'R_DrawWorld'):
-                    gl_rsurf.R_DrawWorld(worldmodel)
+                    gl_rsurf.R_DrawWorld(worldmodel, getattr(refdef, 'submodel_offsets', None))
             except Exception as e:
                 print(f"[GL_RMAIN] World render error: {e}")
 

@@ -236,6 +236,13 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
 
             V_ClearScene()
 
+            # Doors: proximity triggers and mover state
+            try:
+                from . import cl_doors
+                cl_doors.Update(frametime, _ViewState.vieworg)
+            except Exception as door_err:
+                print(f"[DOOR ERROR] {door_err}")
+
             # Monsters: AI, their shots, and rendering
             try:
                 from . import cl_monsters
@@ -290,6 +297,12 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
     # Build refdef_t
     fov_y = CalcFov(fov_x, width, height)
 
+    try:
+        from . import cl_doors
+        submodel_offsets = cl_doors.SubmodelOffsets()
+    except Exception:
+        submodel_offsets = {}
+
     refdef = refdef_t(
         x=0,
         y=0,
@@ -309,6 +322,7 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
         dlights=list(_ViewState.dlights),
         particles=list(_ViewState.particles),
         worldmodel=worldmodel,
+        submodel_offsets=submodel_offsets,
     )
 
     _ViewState.last_refdef = refdef
