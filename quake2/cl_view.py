@@ -156,12 +156,17 @@ def SCR_DrawCrosshair():
 
 
 def _find_spawn_point():
-    """Parse BSP entity string to find info_player_start origin."""
+    """Parse BSP entity string to find info_player_start origin.
+
+    A level change carries a spawnpoint name ("base2$base1"); when one is set
+    the matching landmark start wins, as in SelectSpawnPoint.
+    """
     try:
-        from quake2 import cmodel
+        from quake2 import cmodel, sv_main
         estr = cmodel.entity_string
         if not estr:
             return None
+        wanted = getattr(sv_main.server, 'spawnpoint', '') or ''
         fallback = None
         # Parse entity blocks: { "key" "value" ... }
         i = 0
@@ -193,7 +198,12 @@ def _find_spawn_point():
                     parts = origin_str.split()
                     if len(parts) == 3:
                         origin = [float(parts[0]), float(parts[1]), float(parts[2])]
-                        if not keys.get('targetname'):
+                        targetname = keys.get('targetname', '')
+                        if wanted:
+                            # Arrived from another level: take that landmark
+                            if targetname == wanted:
+                                return origin
+                        elif not targetname:
                             # Default start (not a level-transition landmark) - use it
                             return origin
                         if fallback is None:
@@ -242,6 +252,13 @@ def V_RenderView(fov_x=90.0, width=800, height=600, movement_cmd=None):
                 cl_movers.Update(frametime, _ViewState.vieworg)
             except Exception as mover_err:
                 print(f"[MOVER ERROR] {mover_err}")
+
+            # Touch triggers: level exits and anything else they target
+            try:
+                from . import cl_triggers
+                cl_triggers.Update(frametime, _ViewState.vieworg)
+            except Exception as trigger_err:
+                print(f"[TRIGGER ERROR] {trigger_err}")
 
             # Monsters: AI, their shots, and rendering
             try:

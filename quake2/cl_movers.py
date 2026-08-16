@@ -297,13 +297,27 @@ def _use_team(team, now):
         _play_sound(SOUND_DOOR_START)
 
 
-def _fire_targets(name, now):
-    """G_UseTargets, narrowed to the doors this port knows how to move."""
+def UseTargets(name, now=None):
+    """Open the doors that answer to this targetname (the mover half of
+    G_UseTargets; cl_triggers dispatches the rest)."""
     if not name:
         return
+    if now is None:
+        now = time.time()
     for team in _MoverState.teams:
         if any(door['targetname'] == name for door in team['doors']):
             _use_team(team, now)
+
+
+def _fire_targets(name, now):
+    """Hand a button's target to the dispatcher so non-door targets fire too."""
+    if not name:
+        return
+    try:
+        from . import cl_triggers
+        cl_triggers.UseTargets(name, now)
+    except Exception:
+        UseTargets(name, now)
 
 
 def _press_button(button, now):

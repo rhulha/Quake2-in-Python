@@ -255,6 +255,7 @@ def SV_Map_f():
 
         server.state = 2  # Running
         server.mapname = mapname
+        server.spawnpoint = ""  # console "map" starts at info_player_start
         server.time = 0.0
 
         Com_Printf(f"Loaded map: {mapname}\n")
