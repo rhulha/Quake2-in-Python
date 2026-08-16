@@ -477,8 +477,8 @@ def _box_trace(start, end, mins, maxs):
         from quake2.cmodel import CM_BoxTrace, MASK_SOLID, num_models
         if num_models > 0:
             tr = CM_BoxTrace(start, end, mins, maxs, 0, MASK_SOLID)
-            from quake2 import cl_doors
-            return cl_doors.ClipTrace(start, end, mins, maxs, tr, MASK_SOLID)
+            from quake2 import cl_movers
+            return cl_movers.ClipTrace(start, end, mins, maxs, tr, MASK_SOLID)
     except Exception:
         pass
     return None

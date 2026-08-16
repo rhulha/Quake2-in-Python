@@ -256,11 +256,20 @@ def _trace(start, end):
         if num_models > 0:
             size = [-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]
             tr = CM_BoxTrace(start, end, size[0], size[1], 0, MASK_SOLID)
-            from quake2 import cl_doors
-            return cl_doors.ClipTrace(start, end, size[0], size[1], tr, MASK_SOLID)
+            from quake2 import cl_movers
+            return cl_movers.ClipTrace(start, end, size[0], size[1], tr, MASK_SOLID)
     except Exception:
         pass
     return None
+
+
+def _damage_movers(tr, damage, now):
+    """Press a shootable func_button that a shot trace landed on."""
+    try:
+        from quake2 import cl_movers
+        return cl_movers.Damage(tr, damage, now)
+    except Exception:
+        return False
 
 
 def _damage_monsters_segment(start, end, damage, now):
@@ -287,7 +296,8 @@ def _fire_hitscan(weapon, vieworg, viewangles, now):
     tr = _trace(start, end)
     if tr is not None and (tr.fraction < 1.0 or tr.startsolid):
         end = _trace_impact_position(tr, start, end)
-    _damage_monsters_segment(start, end, weapon['damage'], now)
+    if _damage_monsters_segment(start, end, weapon['damage'], now) is None:
+        _damage_movers(tr, weapon['damage'], now)
 
 
 def _spawn_shotgun_wall_impact(origin, normal, now):
@@ -322,6 +332,8 @@ def _fire_shotgun(weapon, vieworg, viewangles, now):
             )
             if monster_hit is not None or not world_hit:
                 continue
+
+            _damage_movers(tr, shotgun['pellet_damage'], now)
 
             plane = getattr(tr, 'plane', None)
             normal = getattr(plane, 'normal', [0.0, 0.0, 1.0])
@@ -440,6 +452,7 @@ def _update_bolts(frametime, now):
 
         if world_hit:
             impact = seg_end
+            _damage_movers(tr, bolt['damage'], now)
             if bolt['bounce']:
                 plane = getattr(tr, 'plane', None)
                 normal = list(getattr(plane, 'normal', [0.0, 0.0, 1.0]))

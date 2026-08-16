@@ -366,7 +366,7 @@ def R_DrawWorld(worldmodel, submodel_offsets=None):
     """Render world model and its submodels - ModernGL version.
 
     submodel_offsets maps a BSP submodel index to its current world-space
-    displacement (see quake2/cl_doors.py); anything not listed draws in place.
+    displacement (see quake2/cl_movers.py); anything not listed draws in place.
     """
     from . import gl_context
 
